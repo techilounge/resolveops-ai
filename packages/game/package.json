@@ -1,0 +1,19 @@
+{
+  "name": "@resolveops/game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tycoon City — pure deterministic rules engine (Phase 1). Zero runtime dependencies.",
+  "exports": {
+    "./types": "./src/types.ts",
+    "./rng": "./src/rng.ts",
+    "./board": "./src/board.ts",
+    "./state-machine": "./src/state-machine.ts",
+    "./economy": "./src/economy.ts",
+    "./auction": "./src/auction.ts",
+    "./trading": "./src/trading.ts",
+    "./development": "./src/development.ts",
+    "./bankruptcy": "./src/bankruptcy.ts",
+    "./engine": "./src/engine.ts"
+  }
+}
