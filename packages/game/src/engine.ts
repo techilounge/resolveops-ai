@@ -8,6 +8,13 @@
 
 import type { GameState } from './types';
 
+export {
+  applyAction,
+  createGame,
+  getLegalActions,
+  TRANSITION_TABLE,
+} from './state-machine';
+
 const FNV64_OFFSET = 0xcbf29ce484222325n;
 const FNV64_PRIME = 0x100000001b3n;
 const MASK64 = (1n << 64n) - 1n;

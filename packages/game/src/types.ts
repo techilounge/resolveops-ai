@@ -118,6 +118,30 @@ export interface DebtRecord {
   readonly amount: number;
 }
 
+/**
+ * Client intents (spec §4) — exactly what a Phase 3 network client may send;
+ * server authority means "the server runs applyAction". Every variant carries
+ * its sender (`player`) — auction bids and trade responses are validated
+ * against their own rule (any solvent bidder / the offeree), everything else
+ * must come from the active player.
+ */
+export type GameAction =
+  | { readonly type: 'ROLL_DICE'; readonly player: PlayerId }
+  | { readonly type: 'BUY_PROPERTY'; readonly player: PlayerId }
+  | { readonly type: 'DECLINE_BUY'; readonly player: PlayerId }
+  | { readonly type: 'AUCTION_BID'; readonly player: PlayerId; readonly amount: number }
+  | { readonly type: 'AUCTION_PASS'; readonly player: PlayerId }
+  | { readonly type: 'PROPOSE_TRADE'; readonly player: PlayerId; readonly to: PlayerId; readonly give: TradeLeg; readonly want: TradeLeg }
+  | { readonly type: 'ACCEPT_TRADE'; readonly player: PlayerId }
+  | { readonly type: 'DECLINE_TRADE'; readonly player: PlayerId }
+  | { readonly type: 'BUILD_LEVEL'; readonly player: PlayerId; readonly tile: TileId }
+  | { readonly type: 'SELL_LEVEL'; readonly player: PlayerId; readonly tile: TileId }
+  | { readonly type: 'MORTGAGE'; readonly player: PlayerId; readonly tile: TileId }
+  | { readonly type: 'LIFT_MORTGAGE'; readonly player: PlayerId; readonly tile: TileId }
+  | { readonly type: 'PAY_JAIL_FINE'; readonly player: PlayerId }
+  | { readonly type: 'DECLARE_BANKRUPTCY'; readonly player: PlayerId }
+  | { readonly type: 'END_TURN'; readonly player: PlayerId };
+
 export interface TurnContext {
   readonly activePlayer: PlayerId;
   readonly state: TurnState;
@@ -147,7 +171,10 @@ export type GameEvent =
   | { readonly seq: number; readonly type: 'SENT_TO_DEPOT'; readonly player: PlayerId; readonly reason: 'audit' | 'third-doubles'; readonly term: number }
   | { readonly seq: number; readonly type: 'JAIL_FINE_PAID'; readonly player: PlayerId; readonly amount: number; readonly kind: 'voluntary' | 'forced' }
   | { readonly seq: number; readonly type: 'JAIL_ROLL_FAILED'; readonly player: PlayerId; readonly attemptsLeft: number }
-  | { readonly seq: number; readonly type: 'RELEASED_FROM_JAIL'; readonly player: PlayerId; readonly by: 'fine' | 'doubles' | 'forced' };
+  | { readonly seq: number; readonly type: 'RELEASED_FROM_JAIL'; readonly player: PlayerId; readonly by: 'fine' | 'doubles' | 'forced' }
+  | { readonly seq: number; readonly type: 'TAX_COLLECTED'; readonly player: PlayerId; readonly tile: TileId; readonly amount: number }
+  | { readonly seq: number; readonly type: 'DEBT_ENTERED'; readonly player: PlayerId; readonly creditor: PlayerId | 'bank'; readonly amount: number }
+  | { readonly seq: number; readonly type: 'GAME_FINISHED'; readonly winner: PlayerId };
 
 /** Distributive Omit: keeps unions intact where plain Omit would collapse them. */
 export type DistributedOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -165,6 +192,7 @@ export type GameErrorCode =
   | 'INVALID_BID'        // bid below minimum or increment
   | 'ALREADY_PASSED'     // auction participant bid/pass after passing
   | 'INVALID_TILE'       // tile argument outside a legal set
+  | 'INTERNAL'           // engine-internal invariant failure — surfaced, never swallowed
   | 'NOT_IMPLEMENTED';   // rule-module seam not yet built (later Phase 1 PR)
 
 export interface GameError {
@@ -191,6 +219,25 @@ export function notImplemented(handler: string): GameError {
     message: `${handler} is a rule-module seam — implemented by a later Phase 1 engine PR (economy/auction/trading/development/bankruptcy).`,
   };
 }
+
+/**
+ * Deeply mutable view of a type: strips `readonly` from properties, arrays,
+ * and nested records so rule modules can mutate a working copy in place.
+ * Distributes over unions (X | null stays X | null).
+ */
+type DeepMutable<T> =
+  T extends readonly (infer U)[]
+    ? DeepMutable<U>[]
+    : T extends object
+      ? { -readonly [K in keyof T]: DeepMutable<T[K]> }
+      : T;
+
+/**
+ * Mutable working copy of a game state: rule modules receive this (a structural
+ * clone made by applyAction), mutate it in place, and either succeed — the
+ * clone becomes the new state — or fail, discarding it (atomic actions).
+ */
+export type WorkingState = DeepMutable<GameState>;
 
 export interface GameState {
   readonly seed: string;
