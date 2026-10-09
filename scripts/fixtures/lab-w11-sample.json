@@ -1,0 +1,29 @@
+{
+  "machineLabel": "LAB-W11-001",
+  "volumes": [
+    {
+      "driveLetter": "C",
+      "volumeName": "OS",
+      "encryptionStatus": "FullyEncrypted",
+      "protectionStatus": "On",
+      "keyProtectorTypes": ["Tpm", "RecoveryPassword"]
+    },
+    {
+      "driveLetter": "D",
+      "volumeName": "Data",
+      "encryptionStatus": "FullyDecrypted",
+      "protectionStatus": "Off",
+      "keyProtectorTypes": []
+    },
+    {
+      "driveLetter": "E",
+      "volumeName": "USB-TEST",
+      "encryptionStatus": "Encrypted",
+      "protectionStatus": "Unknown",
+      "keyProtectorTypes": ["ExternalKey"]
+    }
+  ],
+  "warnings": [
+    "Synthetic fixture data created for TASK-02 testing. No live system was contacted."
+  ]
+}
