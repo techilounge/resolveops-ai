@@ -1,5 +1,10 @@
 {
   "name": "@resolveops/api",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@resolveops/shared": "*",
+    "fastify": "^5.12.5"
+  }
 }
