@@ -1,6 +1,7 @@
 # ADR-001: Modular monolith
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, "Fixed architectural defaults": "Modular TypeScript backend: Fastify or NestJS (decide via documented ADR), managed PostgreSQL with RLS and database-level tenant constraints, separate worker for durable long operations, private artifact storage." This ADR is that documented decision.
 **Blueprint reference (art_JDTNp9NS):** §5 (target architecture, monorepo target, deployment), §2 (avoid a big-bang rewrite), §15 (governance).
