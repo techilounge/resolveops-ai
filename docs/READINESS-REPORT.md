@@ -1,3 +1,9 @@
+> **ARCHIVED — period document, not a live instruction.** Archived 2026-10-09 (PROD-001).
+> This pre-event readiness audit (October 8, 2026) describes the starter before any delivery work: 3 baseline tests, no git history, and no hosted CI run — all since superseded.
+> Delivered reality: TASK-01/02/03 are implemented and merged (PRs #1–#3; `main` = `a0f342b`); see `README.md` and `docs/EVIDENCE-LOG.md`.
+> Do not follow the content below as current instructions.
+
+
 # Pre-hackathon readiness — October 8, 2026
 
 The starter installs, passes its three existing tests, compiles with strict TypeScript, and builds for production. The dashboard was verified in the local browser. TASK-01, TASK-02, and TASK-03 remain unimplemented for Obvious on October 9.

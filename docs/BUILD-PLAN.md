@@ -1,3 +1,9 @@
+> **ARCHIVED — period document, not a live instruction.** Archived 2026-10-09 (PROD-001).
+> This one-day build plan was written for the October 9, 2026 hackathon event; its schedule, scope cuts, and file-ownership rules were consumed during the event and are now historical.
+> Delivered reality: TASK-01/02/03 are implemented and merged (PRs #1–#3; `main` = `a0f342b`); see `README.md` and `docs/EVIDENCE-LOG.md`.
+> Do not follow the content below as current instructions.
+
+
 # One-day build plan
 
 ## Baseline (tonight)

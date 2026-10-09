@@ -1,3 +1,9 @@
+> **ARCHIVED — period document, not a live instruction.** Archived 2026-10-09 (PROD-001).
+> This kickoff prompt launched the hackathon event and has been fully executed — its instructions describe a day that already happened.
+> Delivered reality: TASK-01/02/03 are implemented and merged (PRs #1–#3; `main` = `a0f342b`); see `README.md` and `docs/EVIDENCE-LOG.md`.
+> Do not follow the content below as current instructions.
+
+
 # Paste into Obvious after connecting this repository
 
 You are the autonomous coding team for the ResolveOps AI hackathon project. Read `README.md`, `AGENTS.md`, `docs/BUILD-PLAN.md`, and all three `tasks/TASK-XX.md` files before editing.
