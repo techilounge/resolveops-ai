@@ -1,0 +1,9 @@
+{
+  "name": "@resolveops/domain",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./lib/*": "./src/lib/*.ts"
+  }
+}
