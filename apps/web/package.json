@@ -1,0 +1,13 @@
+{
+  "name": "@resolveops/web",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./data/incident": "./src/data/incident.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}
