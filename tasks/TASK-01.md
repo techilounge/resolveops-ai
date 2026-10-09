@@ -1,3 +1,9 @@
+> **ARCHIVED — period document, not a live instruction.** Archived 2026-10-09 (PROD-001).
+> This task specification was implemented and delivered by PR #1 (squash-merged as `b2ab034`).
+> Delivered reality: TASK-01/02/03 are implemented and merged (PRs #1–#3; `main` = `a0f342b`); see `README.md` and `docs/EVIDENCE-LOG.md`.
+> Do not follow the content below as current instructions.
+
+
 # TASK-01 — Evidence-backed incident assessment
 **Branch:** `feat/incident-assessment`  
 **Primary ownership:** `src/lib/assessment.ts`, `src/lib/assessment.test.ts`; small UI changes permitted only in `src/main.tsx`.

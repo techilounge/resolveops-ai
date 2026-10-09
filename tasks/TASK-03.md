@@ -1,3 +1,9 @@
+> **ARCHIVED — period document, not a live instruction.** Archived 2026-10-09 (PROD-001).
+> This task specification was implemented and delivered by PR #3 (squash-merged as `a0f342b`).
+> Delivered reality: TASK-01/02/03 are implemented and merged (PRs #1–#3; `main` = `a0f342b`); see `README.md` and `docs/EVIDENCE-LOG.md`.
+> Do not follow the content below as current instructions.
+
+
 # TASK-03 — Human-approved remediation proposal and technician runbook
 **Branch:** `feat/remediation-proposal`  
 **Primary ownership:** `src/lib/proposal.ts`, `src/lib/proposal.test.ts`, `docs/REMEDIATION-RUNBOOK.md`; UI may add a read-only preview.

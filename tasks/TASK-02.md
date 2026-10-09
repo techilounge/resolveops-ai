@@ -1,3 +1,9 @@
+> **ARCHIVED — period document, not a live instruction.** Archived 2026-10-09 (PROD-001).
+> This task specification was implemented and delivered by PR #2 (squash-merged as `bd5ac6f`).
+> Delivered reality: TASK-01/02/03 are implemented and merged (PRs #1–#3; `main` = `a0f342b`); see `README.md` and `docs/EVIDENCE-LOG.md`.
+> Do not follow the content below as current instructions.
+
+
 # TASK-02 — Read-only PowerShell diagnostic toolkit
 **Branch:** `feat/read-only-diagnostics`  
 **Primary ownership:** `scripts/` and `docs/DIAGNOSTIC-RUNBOOK.md` only.
