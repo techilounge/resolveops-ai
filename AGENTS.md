@@ -3,6 +3,8 @@
 ## Mission
 Turn a synthetic BitLocker compliance incident into verifiable engineering deliverables. Obvious is the autonomous **coding** factory. The app is the **domain-specific result** and must never pretend local mock steps are real external agent runs.
 
+> 2026-10-09: Phases 1-2 will introduce Entra/Graph capabilities under ADR-003/ADR-004; the no-connection boundary remains fully binding for all Phase 0 work.
+
 ## Hard safety boundaries
 - No connections to Intune, Entra, Microsoft Graph, ServiceNow, City of Austin systems, or production assets.
 - Never add production credentials, real endpoint inventory, API keys, telemetry, or personal data.
