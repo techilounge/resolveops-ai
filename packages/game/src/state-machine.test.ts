@@ -111,7 +111,7 @@ const EXPECTED: Record<FixtureName, Partial<Record<GameAction['type'], 'ok' | Ga
   },
   awaitingRoll: {
     ROLL_DICE: 'ok',
-    PROPOSE_TRADE: 'NOT_IMPLEMENTED',
+    PROPOSE_TRADE: 'ok',
   },
   awaitingBuy: {
     BUY_PROPERTY: 'NOT_IMPLEMENTED',
@@ -123,7 +123,7 @@ const EXPECTED: Record<FixtureName, Partial<Record<GameAction['type'], 'ok' | Ga
   },
   postRoll: {
     END_TURN: 'ok',
-    PROPOSE_TRADE: 'NOT_IMPLEMENTED',
+    PROPOSE_TRADE: 'ok',
     BUILD_LEVEL: 'NOT_IMPLEMENTED',
     SELL_LEVEL: 'NOT_IMPLEMENTED',
     MORTGAGE: 'NOT_IMPLEMENTED',
