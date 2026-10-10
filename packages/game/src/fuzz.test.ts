@@ -63,6 +63,18 @@ const BOT_GAMES_PER_COUNT = Number(process.env.BOT_GAMES ?? 2);
 /** Per-test budget — scaled with the requested run size. */
 const PARTITION_TIMEOUT_MS = Number(process.env.FUZZ_TIMEOUT_MS ?? 300_000);
 
+/**
+ * Chunked full-scale execution. A full 10,000-game run is one ~90-minute
+ * process — impossible where shell commands are capped at 5 minutes — so the
+ * run is expressed as a sequence of self-contained vitest invocations, each
+ * playing one deterministic slice of one partition's seed list. Chunks
+ * replay the exact games the unchunked run would: seed `fuzz-p<count>-<n>`
+ * fully determines its game, so summing slices equals running the list.
+ * Env unset → the ordinary smoke/full suite, byte-identical behavior.
+ */
+const CHUNK_PARTITION = Number(process.env.FUZZ_ONLY_PARTITION ?? 0);
+const SEED_START = Number(process.env.FUZZ_SEED_START ?? 0);
+const CHUNK_GAMES = Number(process.env.FUZZ_SEED_COUNT ?? 0);
 const SEAT_NAMES = ['Ada', 'Bo', 'Cy', 'Dee', 'Eli'] as const;
 const ALL_TILES: readonly TileId[] = Array.from({ length: BOARD_SIZE }, (_, i) => tileId(i));
 const VALID_ERROR_CODES = new Set<GameErrorCode>([
@@ -617,16 +629,25 @@ function botGame(seed: string, playerCount: number): GameSummary {
 
 describe('random legal-action fuzz (AC10)', () => {
   for (const count of PLAYER_COUNTS) {
-    it(`conserves TD, never throws, and finishes ${GAMES_PER_COUNT} ${count}-player games`, () => {
-      for (let i = 0; i < GAMES_PER_COUNT; i++) {
-        fuzzGame(`fuzz-p${count}-${String(i).padStart(4, '0')}`, count);
+    if (CHUNK_PARTITION !== 0 && count !== CHUNK_PARTITION) continue;
+    const games = CHUNK_GAMES !== 0 ? CHUNK_GAMES : GAMES_PER_COUNT;
+    const first = CHUNK_GAMES !== 0 ? SEED_START : 0;
+    it(`conserves TD, never throws, and finishes ${games} ${count}-player games` +
+      (CHUNK_GAMES !== 0 ? ` (chunk seeds ${first}–${first + games - 1})` : ''), () => {
+      for (let i = 0; i < games; i++) {
+        fuzzGame(`fuzz-p${count}-${String(first + i).padStart(4, '0')}`, count);
       }
     }, PARTITION_TIMEOUT_MS);
   }
 });
 
+// Chunk mode runs exactly one partition slice per invocation — the cold
+// suites (sweep, bot, determinism replays) run separately at full scale.
+const itFull: (name: string, fn: () => void, timeout?: number) => void =
+  CHUNK_PARTITION !== 0 ? it.skip : it;
+
 describe('typed rejection sweep (AC10: every rejection is a typed GameError)', () => {
-  it('answers misplaced actions with typed errors from every reachable turn state', () => {
+  itFull('answers misplaced actions with typed errors from every reachable turn state', () => {
     // Walk one short random game and capture the first state seen in each
     // turn state; from each, fire the full action deck from both the active
     // player and a bystander. Nothing may throw, nothing may surface
@@ -696,7 +717,7 @@ describe('typed rejection sweep (AC10: every rejection is a typed GameError)', (
 });
 
 describe('bot policy games (spec §5 driver, AC10 invariants)', () => {
-  it('plays bot-vs-bot games to completion with every invariant intact', () => {
+  itFull('plays bot-vs-bot games to completion with every invariant intact', () => {
     for (const count of PLAYER_COUNTS) {
       for (let i = 0; i < BOT_GAMES_PER_COUNT; i++) {
         botGame(`bot-p${count}-${String(i).padStart(3, '0')}`, count);
@@ -704,7 +725,7 @@ describe('bot policy games (spec §5 driver, AC10 invariants)', () => {
     }
   }, PARTITION_TIMEOUT_MS);
 
-  it('is deterministic: the same seed replays the same winner in every run', () => {
+  itFull('is deterministic: the same seed replays the same winner in every run', () => {
     const replays = Math.min(BOT_GAMES_PER_COUNT, 3);
     for (const count of PLAYER_COUNTS) {
       for (let i = 0; i < replays; i++) {
