@@ -8,7 +8,12 @@
 // to the seam). Handlers mutate the working copy in place and report success;
 // a typed failure discards the copy, so failed actions are atomic.
 
-import { getTile, isBuyableKind } from './board';
+import {
+  MORTGAGE_LIFT_ROUND_TO,
+  MORTGAGE_LTV,
+  getTile,
+  isBuyableKind,
+} from './board';
 import type {
   GameAction,
   GameError,
@@ -133,4 +138,35 @@ export function collectRent(
   work.turn = { ...work.turn, state: 'debt' };
   pushEvent(work, { type: 'DEBT_ENTERED', player: payer, creditor: payee, amount });
   return { ok: true };
+}
+
+/**
+ * Mortgage value of `tile`: 50% of list price (spec §3.4) — the cash a
+ * mortgage hands over and the principal a lift repays. Tiles that cannot be
+ * owned have no mortgage value. Prices are multiples of 100 TD, so the
+ * halving is exact; the floor keeps the engine total for any future table.
+ * Used by the development module's MORTGAGE / LIFT_MORTGAGE handlers and by
+ * netWorth.
+ */
+export function mortgageValue(tile: TileId): number {
+  const price = getTile(tile).price;
+  return price === null ? 0 : Math.floor(price * MORTGAGE_LTV);
+}
+
+/**
+ * Cost to lift the mortgage on `tile`: the principal plus a 10% fee, rounded
+ * up to the nearest 10 TD (spec §3.4). Used by the development module's
+ * LIFT_MORTGAGE handler.
+ *
+ * Integer-exact end to end. The fee is the exact ratio 11/10, so the rounded
+ * lift is ceil(principal × 11 / 100) × 10. A float path (`principal * 1.1`)
+ * collects IEEE dust — 800 × 1.1 is 880.0000000000001 — and the ceil turns
+ * an exact 880 lift into 890. A canary test pins the ratio to the board
+ * constants so the two cannot drift apart silently.
+ */
+const LIFT_FEE_NUMERATOR = 11; // 10% fee scaled ×10
+const LIFT_FEE_DENOMINATOR = 10;
+export function mortgageLiftCost(tile: TileId): number {
+  const principal = mortgageValue(tile);
+  return Math.ceil((principal * LIFT_FEE_NUMERATOR) / (LIFT_FEE_DENOMINATOR * MORTGAGE_LIFT_ROUND_TO)) * MORTGAGE_LIFT_ROUND_TO;
 }

@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, applyAction } from './state-machine';
 import { rollTwoDice } from './rng';
-import { getTile, isBuyableKind } from './board';
+import { MORTGAGE_LIFT_MULTIPLIER, MORTGAGE_LIFT_ROUND_TO, TILES, getTile, isBuyableKind } from './board';
 import { stateHash } from './engine';
 import * as economy from './economy';
 import type { DevelopmentLevel, Die, GameState, GroupId, PlayerId, TileId, WorkingState } from './types';
@@ -463,5 +463,71 @@ describe('mortgaged rent block (spec §3.4, AC4)', () => {
     expect(after.players[P0].cash).toBe(STARTING_CASH + salaryTerm(target));
     expect(after.players[P1].cash).toBe(STARTING_CASH);
     expect(after.turn.state).toBe('postRoll');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mortgage math (spec §3.4): value 50% of list, lift = principal +10% fee
+// rounded up to 10 TD
+
+/** Spec §3.2 list prices for every purchaseable tile, re-typed. */
+const SPEC_PRICES: readonly (readonly [TileId, number])[] = [
+  [1, 900], [2, 1_100], [4, 1_400], [5, 1_600], [6, 1_600], [7, 1_800],
+  [9, 2_000], [10, 2_000], [11, 1_400], [12, 2_200], [14, 1_600], [15, 2_400],
+  [16, 2_400], [18, 2_600], [20, 2_800], [21, 2_800], [23, 3_000], [24, 1_600],
+  [25, 3_200], [26, 3_200], [28, 3_400], [29, 1_400], [30, 3_800], [31, 3_800],
+  [33, 4_200], [34, 1_600], [36, 4_800], [38, 5_200],
+];
+
+describe('mortgage math (spec §3.4, AC4)', () => {
+  it('the board matches the spec price table for every purchaseable tile', () => {
+    const buyable = TILES.filter(t => isBuyableKind(t.kind));
+    expect(buyable).toHaveLength(SPEC_PRICES.length);
+    for (const t of buyable) {
+      expect(t.price).toBe(SPEC_PRICES.find(([id]) => id === t.id)?.[1] ?? null);
+    }
+  });
+
+  SPEC_PRICES.forEach(([tile, price]) => {
+    it(`tile ${tile} mortgages for ${price / 2} (50% of ${price})`, () => {
+      expect(economy.mortgageValue(tile)).toBe(price / 2);
+    });
+  });
+
+  // Worked examples: principal × 1.1, rounded UP to the nearest 10 TD.
+  [
+    [1, 500],    // 450 → 495 → 500 (the rounding case)
+    [2, 610],    // 550 → 605 → 610
+    [5, 880],    // depot 800 → 880 (already on the 10 TD grid)
+    [11, 770],   // utility 700 → 770
+    [15, 1_320], // 1,200 → 1,320
+    [38, 2_860], // 2,600 → 2,860
+  ].forEach(([tile, cost]) => {
+    it(`tile ${tile} lift cost is ${cost} (principal +10% fee, rounded up to 10 TD)`, () => {
+      expect(economy.mortgageLiftCost(tileId(tile))).toBe(cost);
+    });
+  });
+
+  it('non-purchaseable tiles have no mortgage value and no lift cost', () => {
+    expect(economy.mortgageValue(tileId(0))).toBe(0);
+    expect(economy.mortgageLiftCost(tileId(0))).toBe(0);
+  });
+
+  it('the integer lift ratio stays pinned to the board fee constants', () => {
+    // economy.mortgageLiftCost encodes the 10% fee as 11/10 to stay
+    // float-exact; if the board ever changes the fee or the rounding grid,
+    // update that ratio alongside.
+    expect(MORTGAGE_LIFT_MULTIPLIER).toBe(1.1);
+    expect(MORTGAGE_LIFT_ROUND_TO).toBe(10);
+  });
+
+  it('every lift fee is the 10% charge, rounded up onto the 10 TD grid', () => {
+    for (const [tile] of SPEC_PRICES) {
+      const principal = economy.mortgageValue(tile);
+      const fee = economy.mortgageLiftCost(tile) - principal;
+      expect(fee).toBeGreaterThanOrEqual(principal / 10);
+      expect(fee).toBeLessThanOrEqual(principal / 10 + 10);
+      expect(fee % 10).toBe(0);
+    }
   });
 });
