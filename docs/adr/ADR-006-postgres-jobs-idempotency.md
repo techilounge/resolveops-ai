@@ -1,6 +1,7 @@
 # ADR-006: Postgres jobs with idempotency
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, "Non-negotiable security quality gates": "Jobs must be idempotent, tenant-scoped, restartable, observable and bounded by time/cost limits."
 **Blueprint reference (art_JDTNp9NS):** §5 (durable worker; "durable jobs: PostgreSQL-backed queue at initial scale"), §6 (job states), §11 (202 + job ID/status endpoint for long operations).

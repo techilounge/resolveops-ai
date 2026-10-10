@@ -1,6 +1,7 @@
 # ADR-007: Region/data residency
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, "Fixed architectural defaults": "Commercial multi-tenant SaaS, US-first, tenant-scoped identity and data." Blueprint §16.1: "Choose initial US hosting region and explicit data residency policy."
 **Blueprint reference (art_JDTNp9NS):** §7 (mandatory controls: documented region selection), §9/ADR-005 interplay (AI provider region eligibility), §16.1 (human decision).
