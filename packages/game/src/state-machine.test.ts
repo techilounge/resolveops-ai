@@ -124,15 +124,15 @@ const EXPECTED: Record<FixtureName, Partial<Record<GameAction['type'], 'ok' | Ga
   postRoll: {
     END_TURN: 'ok',
     PROPOSE_TRADE: 'ok',
-    BUILD_LEVEL: 'NOT_IMPLEMENTED',
-    SELL_LEVEL: 'NOT_IMPLEMENTED',
-    MORTGAGE: 'NOT_IMPLEMENTED',
-    LIFT_MORTGAGE: 'NOT_IMPLEMENTED',
+    BUILD_LEVEL: 'INVALID_TILE', // development seam implemented: the fixture owns nothing, so tile 1 cannot be built on
+    SELL_LEVEL: 'INVALID_TILE', // development seam implemented: nothing owned to sell down
+    MORTGAGE: 'INVALID_TILE', // development seam implemented: nothing owned to mortgage
+    LIFT_MORTGAGE: 'INVALID_TILE', // development seam implemented: nothing owned to lift
   },
   debt: {
-    SELL_LEVEL: 'NOT_IMPLEMENTED',
-    MORTGAGE: 'NOT_IMPLEMENTED',
-    DECLARE_BANKRUPTCY: 'NOT_IMPLEMENTED',
+    SELL_LEVEL: 'INVALID_TILE', // development seam implemented: nothing owned to liquidate
+    MORTGAGE: 'INVALID_TILE',
+    DECLARE_BANKRUPTCY: 'ok', // bankruptcy seam implemented: settles the bank debt and advances the turn
   },
   moving: {}, // transient state — every action is WRONG_PHASE
   finished: {}, // handled specially: every action is GAME_NOT_ACTIVE
@@ -438,15 +438,15 @@ describe('The Audit Office (spec §3.3)', () => {
 
 describe('rent seam and atomicity (spec §4)', () => {
   it('a failing seam rejects the whole action and leaves the input state untouched', () => {
-    // The rent seam is implemented now (economy PR), so force the failure
-    // through a seam that is still a stub: MORTGAGE from postRoll.
+    // Every rule-module seam is implemented now, so force the failure
+    // through a seam's validation: MORTGAGE on a tile nobody owns.
     const s = fixture('postRoll');
     const before = structuredClone(s);
 
     const result = applyAction(s, SAMPLE_ACTIONS.MORTGAGE);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.code).toBe('NOT_IMPLEMENTED'); // the development seam is a stub
+    expect(result.error.code).toBe('INVALID_TILE'); // the development seam's ownership guard
     expect(s).toEqual(before); // failed actions are atomic — no partial application
   });
 
