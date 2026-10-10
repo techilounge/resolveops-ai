@@ -114,8 +114,8 @@ const EXPECTED: Record<FixtureName, Partial<Record<GameAction['type'], 'ok' | Ga
     PROPOSE_TRADE: 'ok',
   },
   awaitingBuy: {
-    BUY_PROPERTY: 'NOT_IMPLEMENTED',
-    DECLINE_BUY: 'ok',
+    BUY_PROPERTY: 'ok', // economy seam implemented: buy the stood-on tile at list price
+    DECLINE_BUY: 'ok', // auctions PR implemented: declining starts the open auction
   },
   auction: {
     AUCTION_BID: 'ok',
@@ -438,16 +438,15 @@ describe('The Audit Office (spec §3.3)', () => {
 
 describe('rent seam and atomicity (spec §4)', () => {
   it('a failing seam rejects the whole action and leaves the input state untouched', () => {
-    const seed = seedWithTrueDoubles(2); // 1+1 from tile 39 lands on tile 1, owned by Bo
-    const s = editable(createGame(seed, [...NAMES]));
-    s.players[0] = { ...s.players[0], position: tileId(39) };
-    s.ownership[tileId(1)] = { owner: playerId(1), level: 0, mortgaged: false };
+    // The rent seam is implemented now (economy PR), so force the failure
+    // through a seam that is still a stub: MORTGAGE from postRoll.
+    const s = fixture('postRoll');
     const before = structuredClone(s);
 
-    const result = applyAction(s, { type: 'ROLL_DICE', player: playerId(0) });
+    const result = applyAction(s, SAMPLE_ACTIONS.MORTGAGE);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.code).toBe('NOT_IMPLEMENTED'); // the economy rent seam is a stub
+    expect(result.error.code).toBe('NOT_IMPLEMENTED'); // the development seam is a stub
     expect(s).toEqual(before); // failed actions are atomic — no partial application
   });
 
