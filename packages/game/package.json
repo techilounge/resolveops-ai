@@ -14,6 +14,7 @@
     "./trading": "./src/trading.ts",
     "./development": "./src/development.ts",
     "./bankruptcy": "./src/bankruptcy.ts",
-    "./engine": "./src/engine.ts"
+    "./engine": "./src/engine.ts",
+    "./bot": "./src/bot.ts"
   }
 }
