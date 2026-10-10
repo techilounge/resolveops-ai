@@ -1,6 +1,7 @@
 # ADR-003: Entra SSO + server sessions
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, "Fixed architectural defaults": "Commercial multi-tenant SaaS, US-first, tenant-scoped identity and data. Entra OIDC sign-in first." Blueprint §16.7: "Decide whether MVP starts with Entra-only login (recommended)."
 **Blueprint reference (art_JDTNp9NS):** §7 (identity, roles and security boundaries), §16.7 (Entra-only MVP recommendation), §16.2/§16.8 (test-tenant prerequisites).
