@@ -115,11 +115,11 @@ const EXPECTED: Record<FixtureName, Partial<Record<GameAction['type'], 'ok' | Ga
   },
   awaitingBuy: {
     BUY_PROPERTY: 'NOT_IMPLEMENTED',
-    DECLINE_BUY: 'NOT_IMPLEMENTED',
+    DECLINE_BUY: 'ok',
   },
   auction: {
-    AUCTION_BID: 'NOT_IMPLEMENTED',
-    AUCTION_PASS: 'NOT_IMPLEMENTED',
+    AUCTION_BID: 'ok',
+    AUCTION_PASS: 'ok',
   },
   postRoll: {
     END_TURN: 'ok',
