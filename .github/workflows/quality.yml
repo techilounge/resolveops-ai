@@ -1,0 +1,145 @@
+# P1-2 — Quality gates (Phase 1 Blueprint §4.5, master prompts §PHASE 1).
+#
+# Separation of ownership: this file owns lint, secret scanning, dependency
+# audit, and the /healthz smoke test. Existing .github/workflows/ci.yml
+# (verify + Pester) is intentionally untouched, and the database-CI job is
+# owned by a parallel task — do not merge concerns into this file.
+#
+# Proof-of-detection policy (Blueprint §7, tooling-gates row): a gate that
+# cannot go red is not a gate. Each seedable job was demonstrated failing on
+# a seeded violation (lint error, planted fake secret, known-vulnerable
+# pinned dependency) with run links recorded in the introducing PR, before
+# the seeds were removed. When tightening thresholds later, repeat that
+# demonstration.
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ESLint (typescript-eslint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # Deliberately no --no-audit: installs must surface the audit summary
+      # (see the audit job's threshold policy below).
+      - run: npm ci --no-fund
+      - run: npm run lint
+
+  secrets:
+    name: Secret scanning (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Binary installed directly from the official gitleaks release rather
+      # than a third-party action: no org license requirement, one less
+      # supply-chain hop, and the version is pinned for reproducibility.
+      - name: Install gitleaks (pinned v8.30.1)
+        run: |
+          curl -fsSLo /tmp/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          gitleaks version
+      # Working-tree scan (not history): a PR/push must keep the tree clean;
+      # history scanning on every push is redundant with push protection and
+      # dominates CI time. --redact keeps any finding out of the logs.
+      - name: Scan working tree
+        run: gitleaks detect --no-git --redact --verbose
+
+  audit:
+    name: npm audit (fail on high/critical)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-fund
+      # Threshold policy (P1-2): the gate fails on HIGH or CRITICAL
+      # advisories. MODERATE/LOW findings appear in the npm ci audit summary
+      # and this job's log but do not block; triage them in normal PR flow.
+      # Remediation preference: lockfile-only transitive bumps first, scoped
+      # dependency PRs for majors (suite must stay green — e.g. the vitest
+      # 2.x -> 5.x upgrade that cleared the critical tinypool/vite chain).
+      # A finding that cannot be fixed immediately must be tracked in an
+      # issue and referenced here; do not lower the threshold to go green.
+      - run: npm audit --audit-level=high
+
+  smoke:
+    name: /healthz smoke (boot + shared envelope)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-fund
+      # The repo build (typecheck via tsc -b + vite build for the web app).
+      - run: npm run build
+      # The API has no compiled entry (all tsconfigs are noEmit), so the
+      # smoke boots the real server.ts by bundling it with esbuild — already
+      # in the dependency tree via vite/vitest, so no new dependency. If the
+      # API gains a build output later, bundle from that instead.
+      - name: Bundle API server entry
+        run: |
+          mkdir -p "$RUNNER_TEMP/api-smoke"
+          node_modules/.bin/esbuild apps/api/src/server.ts \
+            --bundle --platform=node --format=cjs \
+            --outfile="$RUNNER_TEMP/api-smoke/server.cjs" --log-level=warning
+      # Boot against ephemeral config (loopback, fixed dev port per
+      # server.ts) and assert BOTH shared envelopes from packages/shared:
+      # the health response (HealthResponseSchema) and the error taxonomy
+      # (ApiErrorSchema, exercised via an unknown route -> 404).
+      - name: Boot API and assert shared envelopes
+        run: |
+          node "$RUNNER_TEMP/api-smoke/server.cjs" >/tmp/api-smoke.log 2>&1 &
+          API_PID=$!
+          ok=""
+          for i in $(seq 1 20); do
+            if curl -sS --max-time 1 http://127.0.0.1:3000/healthz -o /tmp/healthz.json 2>/dev/null; then
+              ok=1
+              break
+            fi
+            sleep 0.5
+          done
+          if [ -z "$ok" ]; then
+            echo "API failed to become ready:"; cat /tmp/api-smoke.log; exit 1
+          fi
+          node --input-type=module - <<'EOF'
+          import assert from 'node:assert';
+          const pid = Number(process.env.SMOKE_PID);
+          try {
+            const health = await fetch('http://127.0.0.1:3000/healthz');
+            assert.equal(health.status, 200);
+            const h = await health.json();
+            // Envelope per packages/shared/src/health.ts (HealthResponseSchema).
+            assert.equal(h.status, 'ok');
+            assert.ok(typeof h.service === 'string' && h.service.length > 0, 'service required');
+            assert.ok(typeof h.version === 'string' && h.version.length > 0, 'version required');
+            assert.match(h.timestamp, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/, 'ISO datetime');
+            const missing = await fetch('http://127.0.0.1:3000/definitely-not-a-route');
+            assert.equal(missing.status, 404);
+            const e = await missing.json();
+            // Envelope per packages/shared/src/errors.ts (ApiErrorSchema).
+            assert.equal(e.error.code, 'NOT_FOUND');
+            assert.ok(typeof e.error.message === 'string' && e.error.message.length > 0);
+            console.log('healthz + error envelopes match the shared contracts');
+          } finally {
+            try { process.kill(pid); } catch {}
+          }
+          EOF
