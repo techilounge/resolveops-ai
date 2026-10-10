@@ -9,6 +9,7 @@
 // a typed failure discards the copy, so failed actions are atomic.
 
 import {
+  DISTRICT_GROUPS,
   MORTGAGE_LIFT_ROUND_TO,
   MORTGAGE_LTV,
   getTile,
@@ -169,4 +170,35 @@ const LIFT_FEE_DENOMINATOR = 10;
 export function mortgageLiftCost(tile: TileId): number {
   const principal = mortgageValue(tile);
   return Math.ceil((principal * LIFT_FEE_NUMERATOR) / (LIFT_FEE_DENOMINATOR * MORTGAGE_LIFT_ROUND_TO)) * MORTGAGE_LIFT_ROUND_TO;
+}
+
+/**
+ * Canonical net worth (spec §3.8, the elimination tiebreak): cash, plus the
+ * list price of every unmortgaged property, mortgaged properties at equity
+ * (list price minus the mortgage principal — the principal is already in the
+ * owner's cash, so this keeps net worth conserved across mortgaging), plus
+ * 50% of development investment. Single-sourced here for the victory checks
+ * and the fuzz harness.
+ *
+ * Development investment counts what the owner paid the bank: one permit
+ * cost per built level. A landmark's construction price is unspecified in
+ * the rules and the board data, so a landmark counts its four priced
+ * permits — an approximation applied identically to every player (reported
+ * spec gap: docs/RULES.md §3.4 defines no landmark cost).
+ */
+export function netWorth(player: PlayerId, state: GameState): number {
+  const p = state.players[player]; // Index === PlayerId (types.ts invariant)
+  let worth = p.cash;
+  let investment = 0;
+  for (const [key, deed] of Object.entries(state.ownership)) {
+    if (!deed || deed.owner !== player) continue;
+    const tile = Number(key) as TileId;
+    const info = getTile(tile);
+    const price = info.price ?? 0;
+    worth += deed.mortgaged ? price - mortgageValue(tile) : price;
+    if (info.group !== null) {
+      investment += Math.min(deed.level, 4) * DISTRICT_GROUPS[info.group].permitCost;
+    }
+  }
+  return worth + Math.floor(investment / 2); // investment is even for every current table
 }

@@ -18,6 +18,7 @@ import { playerId, tileId } from './types';
 const NAMES = ['Ada', 'Bo', 'Cy'] as const;
 const P0 = playerId(0);
 const P1 = playerId(1);
+const P2 = playerId(2);
 
 // Spec constants, re-typed (§3.1, §3.3).
 const STARTING_CASH = 12_000;
@@ -529,5 +530,75 @@ describe('mortgage math (spec §3.4, AC4)', () => {
       expect(fee).toBeLessThanOrEqual(principal / 10 + 10);
       expect(fee % 10).toBe(0);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Net worth (spec §3.8) — canonical single source for victory checks and the
+// fuzz harness
+
+describe('netWorth (spec §3.8)', () => {
+  /** Give `owner` a deed on `tile`; call on a fresh editable state. */
+  function own(s: WorkingState, tile: TileId, owner: PlayerId, level: DevelopmentLevel, mortgaged: boolean): void {
+    s.ownership[tile] = { owner, level, mortgaged };
+  }
+
+  it('counts cash alone for a player with no property', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    expect(economy.netWorth(P0, s)).toBe(STARTING_CASH);
+  });
+
+  it('counts unmortgaged property at list price', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(15), P1, 0, false); // G4 Garden Terraces I, price 2,400
+    expect(economy.netWorth(P1, s)).toBe(STARTING_CASH + 2_400);
+  });
+
+  it('counts mortgaged property at equity: list price minus principal', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(15), P1, 0, true);
+    expect(economy.netWorth(P1, s)).toBe(STARTING_CASH + 1_200); // 2,400 − 1,200 principal
+  });
+
+  it('is conserved across mortgaging: the principal moves from equity to cash', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(15), P1, 0, false);
+    const before = economy.netWorth(P1, s);
+    s.players[P1] = { ...s.players[P1], cash: s.players[P1].cash + 1_200 }; // the mortgage pays out
+    own(s, tileId(15), P1, 0, true);
+    expect(economy.netWorth(P1, s)).toBe(before);
+  });
+
+  it('adds 50% of permit investment for levels 1–4 (G6: 1,500 per level)', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(25), P1, 2, false); // price 3,200; 2 × 1,500 invested → +1,500
+    expect(economy.netWorth(P1, s)).toBe(STARTING_CASH + 3_200 + 1_500);
+  });
+
+  it('counts a landmark as its four priced permits (spec defines no landmark price)', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(25), P1, 5, false); // 4 × 1,500 invested → +3,000
+    expect(economy.netWorth(P1, s)).toBe(STARTING_CASH + 3_200 + 3_000);
+  });
+
+  it('sums price and investment across tiles, groups, and mortgage states', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(15), P1, 0, false); // +2,400 (unmortgaged, undeveloped)
+    own(s, tileId(36), P1, 1, false); // +4,800 and +1,100 (50% of 1 × 2,200)
+    own(s, tileId(38), P1, 5, true); // +2,600 equity and +4,400 (50% of 4 × 2,200)
+    expect(economy.netWorth(P1, s)).toBe(STARTING_CASH + 2_400 + 4_800 + 1_100 + 2_600 + 4_400);
+  });
+
+  it('counts depots and utilities at price with no development component', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(5), P1, 0, false); // North Depot, price 1,600, not a district
+    expect(economy.netWorth(P1, s)).toBe(STARTING_CASH + 1_600);
+  });
+
+  it('ignores property owned by other players', () => {
+    const s = editable(createGame(SEED_PLAIN, [...NAMES]));
+    own(s, tileId(15), P2, 3, false);
+    own(s, tileId(36), P2, 2, false);
+    expect(economy.netWorth(P1, s)).toBe(STARTING_CASH);
   });
 });
