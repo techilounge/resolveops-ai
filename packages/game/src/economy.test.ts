@@ -49,7 +49,10 @@ const SPEC_GROUPS: readonly SpecGroup[] = [
 const SPEC_DEPOT_RENTS: readonly number[] = [400, 900, 1_800, 3_000];
 const SPEC_DEPOTS: readonly TileId[] = [5, 14, 24, 34];
 const SPEC_UTILITY_ONE = 40;
+const SPEC_UTILITY_BOTH = 100;
 const UTILITIES: readonly TileId[] = [11, 29];
+const SPEC_TAX_REVENUE_OFFICE = 1_200; // tile 13
+const SPEC_TAX_LUXURY_LEVY = 900; // tile 22
 
 // ---------------------------------------------------------------------------
 // Deterministic fixtures
@@ -342,5 +345,123 @@ describe('collectRent debt path (spec §3.7)', () => {
     expect(work.debt).toBeNull();
     expect(work.players[P0].cash).toBe(STARTING_CASH);
     expect(work.turn.state).toBe('postRoll');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Depot and utility rents (spec §3.4)
+
+describe('depot rents (spec §3.4, AC4)', () => {
+  SPEC_DEPOT_RENTS.forEach((rent, k) => {
+    const held = k + 1;
+    it(`${held} depot${held > 1 ? 's' : ''} owned pay ${rent}`, () => {
+      const draft = {} as OwnershipDraft;
+      for (const t of SPEC_DEPOTS.slice(0, held)) draft[t] = { owner: P1, level: 0, mortgaged: false };
+      const target = SPEC_DEPOTS[0];
+      const after = landOn(draft, target);
+      expect(after.players[P0].cash).toBe(RENT_TEST_CASH + salaryTerm(target) - rent);
+      expect(after.players[P1].cash).toBe(STARTING_CASH + rent);
+    });
+  });
+});
+
+describe('utility rents (spec §3.4, AC4)', () => {
+  it('one utility pays dice sum × 40', () => {
+    const target = UTILITIES[0];
+    const after = landOn(soloOwner(target, 0), target);
+    const rent = ROLL_SUM * SPEC_UTILITY_ONE;
+    expect(after.players[P0].cash).toBe(RENT_TEST_CASH + salaryTerm(target) - rent);
+    expect(after.players[P1].cash).toBe(STARTING_CASH + rent);
+  });
+
+  it('both utilities pay dice sum × 100', () => {
+    const draft = {} as OwnershipDraft;
+    draft[UTILITIES[0]] = { owner: P1, level: 0, mortgaged: false };
+    draft[UTILITIES[1]] = { owner: P1, level: 0, mortgaged: false };
+    const target = UTILITIES[0];
+    const after = landOn(draft, target);
+    const rent = ROLL_SUM * SPEC_UTILITY_BOTH;
+    expect(after.players[P0].cash).toBe(RENT_TEST_CASH + salaryTerm(target) - rent);
+    expect(after.players[P1].cash).toBe(STARTING_CASH + rent);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Taxes (spec §3.4) — paid to the bank, debt on shortfall
+
+describe('taxes (spec §3.4, AC4)', () => {
+  it('Revenue Office takes 1,200 TD to the bank', () => {
+    const after = landOn({} as OwnershipDraft, tileId(13), STARTING_CASH);
+    expect(after.players[P0].cash).toBe(STARTING_CASH - SPEC_TAX_REVENUE_OFFICE);
+    const taxEvents = after.log.filter(e => e.type === 'TAX_COLLECTED');
+    expect(taxEvents).toHaveLength(1);
+    if (taxEvents[0].type !== 'TAX_COLLECTED') return;
+    expect(taxEvents[0].amount).toBe(SPEC_TAX_REVENUE_OFFICE);
+    expect(taxEvents[0].tile).toBe(tileId(13));
+    expect(after.debt).toBeNull();
+    expect(after.turn.state).toBe('postRoll');
+  });
+
+  it('Luxury Levy takes 900 TD to the bank', () => {
+    const after = landOn({} as OwnershipDraft, tileId(22), STARTING_CASH);
+    expect(after.players[P0].cash).toBe(STARTING_CASH - SPEC_TAX_LUXURY_LEVY);
+    const taxEvents = after.log.filter(e => e.type === 'TAX_COLLECTED');
+    expect(taxEvents).toHaveLength(1);
+    if (taxEvents[0].type !== 'TAX_COLLECTED') return;
+    expect(taxEvents[0].amount).toBe(SPEC_TAX_LUXURY_LEVY);
+    expect(taxEvents[0].tile).toBe(tileId(22));
+  });
+
+  it('tax equal to cash pays down to 0 without debt', () => {
+    const after = landOn({} as OwnershipDraft, tileId(13), SPEC_TAX_REVENUE_OFFICE);
+    expect(after.players[P0].cash).toBe(0);
+    expect(after.debt).toBeNull();
+    expect(after.turn.state).toBe('postRoll');
+  });
+
+  it('tax above cash enters bank debt, cash untouched', () => {
+    const after = landOn({} as OwnershipDraft, tileId(13), SPEC_TAX_REVENUE_OFFICE - 1);
+    expect(after.debt).toEqual({ debtor: P0, creditor: 'bank', amount: SPEC_TAX_REVENUE_OFFICE });
+    expect(after.turn.state).toBe('debt');
+    expect(after.players[P0].cash).toBe(SPEC_TAX_REVENUE_OFFICE - 1);
+    expect(after.log.filter(e => e.type === 'DEBT_ENTERED')).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Salary (spec §3.3) — collected on passing AND landing on City Hall Plaza
+
+describe('salary (spec §3.3, AC4)', () => {
+  it('passing City Hall Plaza collects 1,600 TD once', () => {
+    // Positioned to wrap: raw index 43 → lands on tile 3 (Harbor Plaza, no effect).
+    const after = landOn({} as OwnershipDraft, tileId(3), STARTING_CASH);
+    expect(after.players[P0].cash).toBe(STARTING_CASH + SPEC_SALARY);
+    const salaryEvents = after.log.filter(e => e.type === 'SALARY_COLLECTED');
+    expect(salaryEvents).toHaveLength(1);
+    if (salaryEvents[0].type !== 'SALARY_COLLECTED') return;
+    expect(salaryEvents[0].amount).toBe(SPEC_SALARY);
+    expect(after.turn.state).toBe('postRoll');
+  });
+
+  it('landing on City Hall Plaza collects 1,600 TD once, with no buy offer', () => {
+    const after = landOn({} as OwnershipDraft, tileId(0), STARTING_CASH);
+    expect(after.players[P0].cash).toBe(STARTING_CASH + SPEC_SALARY);
+    const salaryEvents = after.log.filter(e => e.type === 'SALARY_COLLECTED');
+    expect(salaryEvents).toHaveLength(1);
+    expect(after.log.filter(e => e.type === 'BUY_OFFERED')).toHaveLength(0);
+    expect(after.turn.state).toBe('postRoll');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mortgaged properties collect no rent (spec §3.4)
+
+describe('mortgaged rent block (spec §3.4, AC4)', () => {
+  it('a developed but mortgaged property collects 0 rent', () => {
+    const target = tileId(15);
+    const after = landOn(soloOwner(target, 2, true), target, STARTING_CASH);
+    expect(after.players[P0].cash).toBe(STARTING_CASH + salaryTerm(target));
+    expect(after.players[P1].cash).toBe(STARTING_CASH);
+    expect(after.turn.state).toBe('postRoll');
   });
 });
