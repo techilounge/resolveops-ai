@@ -31,5 +31,8 @@
 .lab-log-seq{color:#98a6b6;font-size:10px;min-width:44px;flex-shrink:0;padding-top:1px}
 .lab-log-line>span:last-child{min-width:0;overflow-wrap:anywhere}
 .lab-metrics{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+/* Lab stacks at 720px: state first, log below. Single column all the way down. */
+@media(max-width:720px){.lab-layout{grid-template-columns:1fr;margin-top:14px}.lab-col{gap:14px}.lab-controls{gap:12px}.lab-buttons{width:100%}.lab-log{max-height:300px}}
+@media(max-width:420px){.lab-choices label{padding:8px 9px;font-size:11px}.lab-button{padding:10px 14px}}
 
 
