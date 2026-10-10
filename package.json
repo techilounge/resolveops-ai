@@ -7,11 +7,15 @@
     "packages/*"
   ],
   "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:fuzz": "FUZZ_GAMES=2500 BOT_GAMES=25 FUZZ_TIMEOUT_MS=3600000 vitest run packages/game/src/fuzz.test.ts",
     "test:watch": "vitest",
     "check": "npm run test && npm run build"
   },

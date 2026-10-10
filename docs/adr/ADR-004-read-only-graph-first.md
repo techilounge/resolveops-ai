@@ -1,6 +1,7 @@
 # ADR-004: Read-only Graph first
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, "Fixed architectural defaults": "Microsoft Graph/Intune read-only customer consent as first live integration." Prompt 0: "R0-R5 must have NO arbitrary endpoint execution, production PowerShell actions, remote remediation, recovery-key retrieval or model-generated command execution."
 **Blueprint reference (art_JDTNp9NS):** §8 (Microsoft Intune integration specification), §10 (no endpoint execution path in R1–R5), §16.8 (dedicated test tenant).

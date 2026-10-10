@@ -1,6 +1,7 @@
 # ADR-005: Evidence-first AI with no autonomous execution
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, "Fixed architectural defaults": "In-product AI investigation orchestrator is separate from Obvious coding agents. Rule-first evidence-based investigations, provider-independent model routing, tenant-allowed fallbacks, structured output validation and budget controls." Prompt 0: "R0-R5 must have NO arbitrary endpoint execution, production PowerShell actions, remote remediation, recovery-key retrieval or model-generated command execution. Proposals are drafts until authorized humans review them." Security gates: "AI output is untrusted; schemas/citations/role policy checks are enforced by deterministic code; AI cannot grant approval or call an execution tool." "Provider fallback may never send organization data to an unapproved or disallowed AI vendor/region."
 **Blueprint reference (art_JDTNp9NS):** §9 (incident intelligence and AI orchestration), §10 (proposals and approvals), §16.6 (what data may go to approved model providers).

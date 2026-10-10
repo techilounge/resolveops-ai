@@ -1,6 +1,7 @@
 # ADR-008: Retention and tenant lifecycle
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, Phase 5 workstreams: "Comprehensive audits/exports/deletion, retention policy, customer offboarding, evidence storage lifecycle, documented model provider disclosure and consent." Blueprint §7 mandatory controls: "configurable retention/export/delete."
 **Blueprint reference (art_JDTNp9NS):** §6 (schema and lifecycle: `deleted_at`, retention), §7 (audit integrity, retention), §12 (billing/offboarding), §13 (backup/restore drills).

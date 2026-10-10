@@ -1,6 +1,7 @@
 # ADR-002: Tenant scoping + RLS
 
-**Status:** Proposed — pending ratification at the Phase 0 gate
+**Status:** Accepted
+**Ratification:** Ratified as Accepted at the Phase 0 gate review, 2026-10-09 (TechiLounge).
 **Date:** 2026-10-09
 **Mandate served (prompts pack, art_6BLtxfho):** Prompt 0, "Non-negotiable security quality gates": "A server-verified active organization and role on every tenant-owned API operation; SQL RLS and tenant-consistent relational references; cross-tenant negative tests." Prompt 0, "Fixed architectural defaults": "managed PostgreSQL with RLS and database-level tenant constraints."
 **Blueprint reference (art_JDTNp9NS):** §6 (PostgreSQL schema and data lifecycle), §7 (identity and security boundaries), §16.3 (provider decision criteria).
