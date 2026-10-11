@@ -36,3 +36,20 @@ At the Phase 0 gate review on 2026-10-09, TechiLounge ratified three decisions. 
 **Blueprint incorporation note:** the Blueprint artifact itself (`art_JDTNp9NS`) is **not** amended by repo docs — these fixes live in the repo only. Incorporating the gate-decided rows into Blueprint §4 (IA) and §11 (API routes) remains open for a future Blueprint revision.
 
 **Do not update statuses without direct evidence.** Each row above cites its merge SHA, its post-merge CI run on `main`, and its independent review verdict. Distinguish PR opened, approved, and merged — all three are complete for TASK-01/02/03.
+
+
+---
+
+## Phase 1 Part A — scoped API deltas as implemented (recorded 2026-10-11)
+
+Phase 1 spec §6 requires the three deltas to be repeated at implementation time. Recorded here as shipped on branch `feat/p1-scoped-api` (P1-4):
+
+| Delta | Spec wording (§6) | As implemented | Direct evidence |
+|---|---|---|---|
+| **D1 — assignments** | `incidents.assignee_user_id` + an `audit_events` row per assignment change, not a separate assignments table | `assignee_user_id` column shipped in migration `002_incidents.sql`; every PATCH that changes the assignee writes `incident.assigned` / `incident.unassigned` (plus the patch-level `incident.updated` row) in the same transaction | `apps/api/src/routes/incidents.ts` (assign/unassign transition block); `apps/api/src/incidents.test.ts` asserts the delta-D1 audit row scoped to the incident id |
+| **D2 — route additions** | `POST /api/v1/me/active-organization`, `GET /api/v1/organizations/current/members`, `POST /api/v1/organizations/current/invitations` documented in `docs/ROUTE-MAP.md` as spec-decided additions pending Blueprint §11 incorporation | All three routes shipped, Zod-validated against the shared DTOs, on the shared error envelope with request-id and pagination; switching is audited, roster listing is owner/admin (audited denial), invitations create `status='invited'` memberships with first-login subject binding | `docs/ROUTE-MAP.md` §3.2 rows (this PR); `apps/api/src/routes/{me,members}.ts`; `apps/api/src/tenancy-orgs.test.ts`, `apps/api/src/members-invites.test.ts` |
+| **D3 — audit events API-only** | `GET /audit-events` + tests this phase; the `/app/audit` screen follows in a later phase per §4 IA | Route shipped against the dedicated `resolveops_audit_reader` SELECT-only pool (separate connection, least-privilege grant from migration `004`), org-scoped and paginated; denied reads audited through the app pool; zero web UI | `apps/api/src/routes/audit-events.ts`; `apps/api/src/tenancy-orgs.test.ts` (audit authorization + pagination cases) |
+
+Status reconciliation recorded at P1-1 and now consumed by these routes: the shared incident DTO enum is the Blueprint §6 set (`new|triaged|investigating|awaiting_review|resolved|closed`) — the database is the source of truth.
+
+Suite totals at the P1-4 head (fresh-from-empty PostgreSQL 17 in CI and locally): **73/73 apps/api across 6 files**, **62/62 packages/shared**, **42/42 packages/database**, strict `tsc`, ESLint clean, `npm audit` clean. Known issue disclosed to the orchestrator (report-only): the packages/auth audit-reader role bootstrap (`ensureAppRolePassword`) races under parallel suites — a session-scoped advisory lock mitigates it in the test harness, but the upstream fix belongs to packages/auth (P1-3's file, not edited here).
