@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@resolveops/auth": "*",
     "@resolveops/shared": "*",
-    "fastify": "^5.12.5"
+    "fastify": "^5.12.5",
+    "pg": "8.23.1"
   }
 }
