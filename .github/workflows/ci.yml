@@ -16,7 +16,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci --no-audit --no-fund
+      - run: npm ci
       - run: npm run check
 
   pester:
