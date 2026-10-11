@@ -10,24 +10,16 @@ import { MemoryRouter, useLocation } from 'react-router';
 import { AppRoutes } from './routes';
 import { SessionProvider } from './session/SessionProvider';
 import { resetClientState, setUnauthorizedHandler } from './api/client';
-import { TEST_IDS, installFetchStub, type FetchHandler, type FetchStub } from './testing/fetchStub';
+import { TEST_IDS, installFetchStub, meFixture, membershipFixture, orgFixture, type FetchHandler, type FetchStub } from './testing/fetchStub';
 
-const { user: USER_ID, orgA: ORG_A_ID, orgB: ORG_B_ID } = TEST_IDS;
+const { orgA: ORG_A_ID, orgB: ORG_B_ID } = TEST_IDS;
 
-const ME_TWO_ORGS = {
-  user: { id: USER_ID, displayName: 'Avery Analyst', email: 'avery@example.com' },
-  memberships: [
-    { organizationId: ORG_A_ID, role: 'owner' },
-    { organizationId: ORG_B_ID, role: 'analyst' },
-  ],
-};
+const ME_TWO_ORGS = meFixture([
+  membershipFixture(ORG_A_ID, 'City of Austin IT', 'owner'),
+  membershipFixture(ORG_B_ID, 'Harborview Ops', 'analyst'),
+]);
 
-const ORG_A = {
-  id: ORG_A_ID,
-  name: 'City of Austin IT',
-  createdAt: '2026-10-11T00:00:00.000Z',
-  updatedAt: '2026-10-11T00:00:00.000Z',
-};
+const ORG_A = orgFixture(ORG_A_ID, 'City of Austin IT', 'city-of-austin-it');
 
 function LocationProbe(): ReactElement {
   const location = useLocation();
@@ -137,10 +129,11 @@ describe('authenticated shell', () => {
     expect(screen.getByText('avery@example.com')).toBeDefined();
     const selector = screen.getByLabelText(/organization/i) as HTMLSelectElement;
     await waitFor(() => expect(selector.value).toBe(ORG_A_ID));
-    // Active org labeled with its name; the other membership by role + short id.
+    // Every membership labels with its org name (server-resolved in /me);
+    // the selector value points at the active organization.
     const labels = Array.from(selector.options).map((option) => option.textContent);
-    expect(labels.some((label) => (label ?? '').includes('City of Austin IT'))).toBe(true);
-    expect(labels.some((label) => (label ?? '').startsWith('analyst ·'))).toBe(true);
+    expect(labels.some((label) => (label ?? '').includes('City of Austin IT (owner)'))).toBe(true);
+    expect(labels.some((label) => (label ?? '').includes('Harborview Ops (analyst)'))).toBe(true);
     stub.restore();
   });
 

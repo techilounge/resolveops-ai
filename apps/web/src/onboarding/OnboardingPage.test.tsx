@@ -9,27 +9,11 @@ import { MemoryRouter, Routes, Route } from 'react-router';
 import { OnboardingPage } from './OnboardingPage';
 import { SessionProvider } from '../session/SessionProvider';
 import { resetClientState, setUnauthorizedHandler } from '../api/client';
-import { TEST_IDS, installFetchStub, type FetchHandler } from '../testing/fetchStub';
+import { TEST_IDS, createdOrgEnvelope, installFetchStub, meFixture, membershipFixture, orgFixture, type FetchHandler } from '../testing/fetchStub';
 
-const { user: USER_ID, orgA: ORG_A_ID, orgB: ORG_B_ID } = TEST_IDS;
+const { orgA: ORG_A_ID, orgB: ORG_B_ID } = TEST_IDS;
 
-const ORG_A = {
-  id: ORG_A_ID,
-  name: 'City of Austin IT',
-  createdAt: '2026-10-11T00:00:00.000Z',
-  updatedAt: '2026-10-11T00:00:00.000Z',
-};
-
-function orgBody(id: string, name: string): unknown {
-  return { id, name, createdAt: '2026-10-11T00:00:00.000Z', updatedAt: '2026-10-11T00:00:00.000Z' };
-}
-
-function meBody(memberships: { organizationId: string; role: string }[]): unknown {
-  return {
-    user: { id: USER_ID, displayName: 'Avery Analyst', email: 'avery@example.com' },
-    memberships,
-  };
-}
+const ORG_A = orgFixture(ORG_A_ID, 'City of Austin IT', 'city-of-austin-it');
 
 function AppLanding(): ReactElement {
   return <div>APP_LANDING</div>;
@@ -68,7 +52,7 @@ describe('OnboardingPage', () => {
   it('already-member: offers opening the organization and lands in /app', async () => {
     const stub = installFetchStub(((request) => {
       if (request.method === 'GET' && request.url.endsWith('/api/v1/me')) {
-        return { status: 200, body: meBody([{ organizationId: ORG_A_ID, role: 'owner' }]) };
+        return { status: 200, body: meFixture([membershipFixture(ORG_A_ID, 'City of Austin IT', 'owner')]) };
       }
       if (request.method === 'GET' && request.url.endsWith('/api/v1/organizations/current')) {
         return { status: 200, body: ORG_A };
@@ -98,7 +82,7 @@ describe('OnboardingPage', () => {
         // Before create: no memberships; after create: the new one appears.
         return {
           status: 200,
-          body: created ? meBody([{ organizationId: ORG_B_ID, role: 'owner' }]) : meBody([]),
+          body: created ? meFixture([membershipFixture(ORG_B_ID, 'New Shire IT', 'owner')]) : meFixture([]),
         };
       }
       if (request.method === 'GET' && request.url.endsWith('/api/v1/organizations/current')) {
@@ -106,7 +90,10 @@ describe('OnboardingPage', () => {
       }
       if (request.method === 'POST' && request.url.endsWith('/api/v1/organizations')) {
         created = true;
-        return { status: 201, body: orgBody(ORG_B_ID, 'New Shire IT') };
+        return {
+          status: 201,
+          body: createdOrgEnvelope(orgFixture(ORG_B_ID, 'New Shire IT', 'new-shire-it')),
+        };
       }
       if (request.method === 'POST' && request.url.endsWith('/api/v1/me/active-organization')) {
         return { status: 204, body: null };
@@ -137,7 +124,7 @@ describe('OnboardingPage', () => {
   it('create-org API error: shows the retryable error panel and keeps the form', async () => {
     const stub = installFetchStub(((request) => {
       if (request.method === 'GET' && request.url.endsWith('/api/v1/me')) {
-        return { status: 200, body: meBody([]) };
+        return { status: 200, body: meFixture([]) };
       }
       if (request.method === 'GET' && request.url.endsWith('/api/v1/organizations/current')) {
         return { status: 404, body: { error: { code: 'NOT_FOUND', message: 'No active organization.' } } };
@@ -164,7 +151,7 @@ describe('OnboardingPage', () => {
   it('create-org denied: shows the denied panel on 403', async () => {
     const stub = installFetchStub(((request) => {
       if (request.method === 'GET' && request.url.endsWith('/api/v1/me')) {
-        return { status: 200, body: meBody([]) };
+        return { status: 200, body: meFixture([]) };
       }
       if (request.method === 'GET' && request.url.endsWith('/api/v1/organizations/current')) {
         return { status: 404, body: { error: { code: 'NOT_FOUND', message: 'No active organization.' } } };
@@ -191,13 +178,16 @@ describe('OnboardingPage', () => {
     const stub = installFetchStub(((request) => {
       if (request.method === 'GET' && request.url.endsWith('/api/v1/me')) {
         // /me never reflects the new organization even after create.
-        return { status: 200, body: meBody([]) };
+        return { status: 200, body: meFixture([]) };
       }
       if (request.method === 'GET' && request.url.endsWith('/api/v1/organizations/current')) {
         return { status: 404, body: { error: { code: 'NOT_FOUND', message: 'No active organization.' } } };
       }
       if (request.method === 'POST' && request.url.endsWith('/api/v1/organizations')) {
-        return { status: 201, body: orgBody(ORG_B_ID, 'New Shire IT') };
+        return {
+          status: 201,
+          body: createdOrgEnvelope(orgFixture(ORG_B_ID, 'New Shire IT', 'new-shire-it')),
+        };
       }
       return undefined;
     }) satisfies FetchHandler);
@@ -216,7 +206,7 @@ describe('OnboardingPage', () => {
   it('empty name is rejected client-side without a network call', async () => {
     const stub = installFetchStub(((request) => {
       if (request.method === 'GET' && request.url.endsWith('/api/v1/me')) {
-        return { status: 200, body: meBody([]) };
+        return { status: 200, body: meFixture([]) };
       }
       if (request.method === 'GET' && request.url.endsWith('/api/v1/organizations/current')) {
         return { status: 404, body: { error: { code: 'NOT_FOUND', message: 'No active organization.' } } };
