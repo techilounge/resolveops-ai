@@ -103,8 +103,11 @@ export const meRoutes: FastifyPluginCallback<ResourceRouteOptions> = (app, deps,
 
     const context = await loadTenantContext(deps.pool, requested);
     if (!context) {
-      // Non-member selection: audited into the TARGET org's log, stale org
-      // cleared from the session, no enumeration signal in the response.
+      // Non-member selection: audited into the TARGET org's log. The session
+      // is deliberately untouched — a denied switch changes no state, so the
+      // previously valid selection survives (and nothing stale can slip: the
+      // guard re-verifies the stored org's active membership on every
+      // request, so a mid-session revocation fails the guard regardless).
       await withTenantContext(deps.pool, requested, (client) =>
         writeAuditEvent(client, {
           organizationId: requested.organizationId,
@@ -114,9 +117,6 @@ export const meRoutes: FastifyPluginCallback<ResourceRouteOptions> = (app, deps,
           targetId: requested.organizationId,
           metadata: { reason: 'not_active_member' },
         }));
-      session.activeOrgId = null;
-      session.membershipRole = null;
-      await request.session.save();
       throw new AuthError('FORBIDDEN', 'Not an active member of the selected organization.');
     }
 

@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyPluginCallback } from 'fastify';
 import {
   CreateOrganizationRequestSchema,
+  CurrentOrganizationResponseSchema,
+  OrganizationCreatedResponseSchema,
   OrganizationSchema,
 } from '@resolveops/shared';
 import {
@@ -46,12 +48,13 @@ export const organizationRoutes: FastifyPluginCallback<ResourceRouteOptions> = (
         const org = await client.query<{
           id: string;
           name: string;
+          slug: string;
           created_at: Date;
           updated_at: Date;
         }>(
           `INSERT INTO organizations (id, name, slug)
            VALUES ($1, $2, $3)
-           RETURNING id, name, created_at, updated_at`,
+           RETURNING id, name, slug, created_at, updated_at`,
           [organizationId, body.name, slug],
         );
         await client.query(
@@ -72,11 +75,17 @@ export const organizationRoutes: FastifyPluginCallback<ResourceRouteOptions> = (
     );
 
     reply.code(201);
-    return OrganizationSchema.parse({
-      id: created.id,
-      name: created.name,
-      createdAt: created.created_at.toISOString(),
-      updatedAt: created.updated_at.toISOString(),
+    return OrganizationCreatedResponseSchema.parse({
+      organization: {
+        id: created.id,
+        name: created.name,
+        slug: created.slug,
+        createdAt: created.created_at.toISOString(),
+        updatedAt: created.updated_at.toISOString(),
+      },
+      // The creating user becomes owner of the new organization — the same
+      // transaction wrote this membership row.
+      membership: { role: 'owner', status: 'active' },
     });
   });
 
@@ -92,10 +101,11 @@ export const organizationRoutes: FastifyPluginCallback<ResourceRouteOptions> = (
         client.query<{
           id: string;
           name: string;
+          slug: string;
           created_at: Date;
           updated_at: Date;
         }>(
-          `SELECT id, name, created_at, updated_at
+          `SELECT id, name, slug, created_at, updated_at
              FROM organizations
             WHERE id = $1`,
           [context.organizationId],
@@ -103,11 +113,17 @@ export const organizationRoutes: FastifyPluginCallback<ResourceRouteOptions> = (
       );
       const org = orgs.rows[0];
       if (!org) throw new AuthError('NOT_FOUND', 'Organization not found.');
-      return OrganizationSchema.parse({
-        id: org.id,
-        name: org.name,
-        createdAt: org.created_at.toISOString(),
-        updatedAt: org.updated_at.toISOString(),
+      return CurrentOrganizationResponseSchema.parse({
+        organization: {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          createdAt: org.created_at.toISOString(),
+          updatedAt: org.updated_at.toISOString(),
+        },
+        // The role comes from the server-verified membership context, never
+        // from a client claim.
+        role: context.role,
       });
     },
   );

@@ -90,6 +90,13 @@ export async function bindPendingInvitations(
         },
       );
     }
+
+    // The pending identity's memberships are consumed by the moves above;
+    // the sentinel user row itself remains, inert (it can never sign in —
+    // PENDING_INVITE_ISSUER is not a valid OIDC issuer) and the app role is
+    // deliberately not granted users DELETE (migration 006, least
+    // privilege). The invitation route reuses the sentinel row verbatim if
+    // the same email is invited again, so nothing accumulates.
   }
   return bound;
 }

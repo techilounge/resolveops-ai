@@ -8,10 +8,42 @@ import { PaginatedResponseSchema } from './pagination';
 export const OrganizationSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(200),
+  // Server-generated on create (the request contract has no slug input) and
+  // unique per organization (migration 001).
+  slug: z.string().min(1).max(200),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
 export type Organization = z.infer<typeof OrganizationSchema>;
+
+/**
+ * POST /api/v1/organizations response: the created organization plus the
+ * creating user's owner membership — both written in ONE transaction
+ * (Phase 1 spec §4.3), so the response presents them together.
+ */
+export const OrganizationCreatedResponseSchema = z
+  .object({
+    organization: OrganizationSchema,
+    membership: z.object({
+      role: TenantRoleSchema,
+      status: z.enum(['active', 'invited', 'revoked']),
+    }),
+  })
+  .strict();
+export type OrganizationCreatedResponse = z.infer<typeof OrganizationCreatedResponseSchema>;
+
+/**
+ * GET /api/v1/organizations/current response: the validated organization
+ * context — the guard has verified the session's active membership; the
+ * caller's role rides along for shell rendering (P1-5).
+ */
+export const CurrentOrganizationResponseSchema = z
+  .object({
+    organization: OrganizationSchema,
+    role: TenantRoleSchema,
+  })
+  .strict();
+export type CurrentOrganizationResponse = z.infer<typeof CurrentOrganizationResponseSchema>;
 
 // Strict on purpose: unknown keys in a request body are client errors, not
 // fields to silently drop.

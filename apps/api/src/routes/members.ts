@@ -29,6 +29,22 @@ export const memberRoutes: FastifyPluginCallback<ResourceRouteOptions> = (app, d
     async (request) => {
       const context = request.tenantContext;
       if (!context) throw new AuthError('INTERNAL', 'Tenant context missing after guard.');
+
+      // The roster is owner/admin surface (least privilege): a non-privileged
+      // member's read is a sensitive-op denial — audited, zero data echo.
+      if (context.role !== 'owner' && context.role !== 'admin') {
+        await withTenantContext(deps.pool, context, (client) =>
+          writeAuditEvent(client, {
+            organizationId: context.organizationId,
+            actorUserId: context.userId,
+            action: 'members.read_denied',
+            targetType: 'organization',
+            targetId: context.organizationId,
+            metadata: { reason: 'not_privileged_reader', role: context.role },
+          }));
+        throw new AuthError('FORBIDDEN', 'Roster listing is restricted to organization owners and admins.');
+      }
+
       const query = ListQuerySchema.parse(request.query ?? {});
       return withTenantContext(deps.pool, context, async (client) => {
         const offset = (query.page - 1) * query.pageSize;

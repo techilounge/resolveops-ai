@@ -10,6 +10,7 @@ import {
 const validOrg = {
   id: '9e2f4b5a-3f21-4e0e-8c1d-6a2b7f0d3c01',
   name: 'Acme IT',
+  slug: 'acme-it-1a2b3c4d',
   createdAt: '2026-10-09T10:00:00.000Z',
   updatedAt: '2026-10-09T10:00:00.000Z',
 } as const;
