@@ -61,6 +61,8 @@ export interface RunAsOptions {
   role: string;
   /** Tenant context; omit for the no-context (deny-by-default) case. */
   orgId?: string;
+  /** Acting user for user-scoped policies (migration 007 self-visibility). */
+  userId?: string;
 }
 
 /**
@@ -249,7 +251,23 @@ export function auditReaderDatabaseUrl(connectionString = testDatabaseUrl()): st
 }
 
 export async function ensureAuditReaderPassword(pool: Pool): Promise<void> {
-  await pool.query('ALTER ROLE resolveops_audit_reader LOGIN PASSWORD $1', [
-    AUDIT_READER_TEST_PASSWORD,
-  ]);
+  // Postgres utility statements do not accept bind parameters — interpolate
+  // the literal the same way ensureAppRolePassword does for the app role.
+  // The advisory lock serializes role bootstrap across parallel vitest
+  // workers: concurrent ALTER ROLE on one role races (tuple concurrently
+  // updated). Lock is session-scoped, so it is taken and released on ONE
+  // dedicated connection.
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock(hashtext('resolveops-test-role-bootstrap'))");
+    try {
+      await client.query(
+        `ALTER ROLE resolveops_audit_reader LOGIN PASSWORD '${AUDIT_READER_TEST_PASSWORD}'`,
+      );
+    } finally {
+      await client.query("SELECT pg_advisory_unlock(hashtext('resolveops-test-role-bootstrap'))");
+    }
+  } finally {
+    client.release();
+  }
 }
