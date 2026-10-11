@@ -59,6 +59,7 @@ export {
 export {
   CreateIncidentRequestSchema,
   IncidentDtoSchema,
+  IncidentIdParamsSchema,
   IncidentListResponseSchema,
   IncidentResponseSchema,
   IncidentSeveritySchema,
@@ -67,6 +68,7 @@ export {
   PatchIncidentRequestSchema,
   type CreateIncidentRequest,
   type IncidentDto,
+  type IncidentIdParams,
   type IncidentListResponse,
   type IncidentResponse,
   type IncidentSeverity,
