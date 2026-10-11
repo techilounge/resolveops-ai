@@ -27,23 +27,33 @@ export function testDatabaseUrl(): string {
  */
 export async function connectTestDatabase(): Promise<Pool | undefined> {
   const connectionString = testDatabaseUrl();
-  const pool = new pg.Pool({ connectionString, connectionTimeoutMillis: 3000, max: 8 });
-  try {
-    await pool.query('SELECT 1');
-    return pool;
-  } catch (err) {
-    // Cleanup of a pool that never connected; the connect error below is the
-    // one that carries information.
-    await pool.end().catch(() => {});
-    if (process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL is set but the database is unreachable', { cause: err });
+  // Full test runs open many pools at once (one per suite worker); a single
+  // 3s attempt transiently times out under that connection storm. Retry a
+  // bounded three times — a genuinely-dead database still fails on the last
+  // attempt, so the skip/error semantics below are unchanged.
+  const attempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const pool = new pg.Pool({ connectionString, connectionTimeoutMillis: 3000, max: 8 });
+    try {
+      await pool.query('SELECT 1');
+      return pool;
+    } catch (err) {
+      lastError = err;
+      await pool.end().catch(() => {});
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      }
     }
-    console.warn(
-      '[database] No local Postgres at the default URL — skipping database tests. ' +
-        'Start one per the package README (docker run postgres:17) or set DATABASE_URL.',
-    );
-    return undefined;
   }
+  if (process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is set but the database is unreachable', { cause: lastError });
+  }
+  console.warn(
+    '[database] No local Postgres at the default URL — skipping database tests. ' +
+      'Start one per the package README (docker run postgres:17) or set DATABASE_URL.',
+  );
+  return undefined;
 }
 
 export interface RunAsOptions {

@@ -68,6 +68,7 @@ describe('runMigrations', () => {
         '003_incident_comments.sql',
         '004_audit_events.sql',
         '005_app_sessions.sql',
+        '006_users_grants.sql',
       ]);
       expect(second.applied).toEqual([]);
       expect(second.skipped).toEqual(first.applied);
@@ -115,6 +116,7 @@ describe('runMigrations', () => {
         '003_incident_comments.sql',
         '004_audit_events.sql',
         '005_app_sessions.sql',
+        '006_users_grants.sql',
       ]);
     } finally {
       await endPoolAndDropScratchDatabase(target, maintenance, scratch);
@@ -150,6 +152,7 @@ describe('runMigrations', () => {
       '003_incident_comments.sql',
       '004_audit_events.sql',
       '005_app_sessions.sql',
+      '006_users_grants.sql',
     ]);
   });
 });
