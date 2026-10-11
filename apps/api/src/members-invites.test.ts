@@ -11,8 +11,8 @@ import {
   type TestContext,
   type TestSession,
 } from './testing/support';
-import { CSRF_SECRET, STUB_ISSUER } from './testing/constants';
-import { csrfTokenFor, SESSION_COOKIE_NAME } from '@resolveops/auth';
+import { CSRF_SECRET } from './testing/constants';
+import { csrfTokenFor } from '@resolveops/auth';
 
 /**
  * Phase 1 spec §4.3 team surface over HTTP (delta D2): the org roster

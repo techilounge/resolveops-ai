@@ -4,7 +4,6 @@ import {
   CreateOrganizationRequestSchema,
   CurrentOrganizationResponseSchema,
   OrganizationCreatedResponseSchema,
-  OrganizationSchema,
 } from '@resolveops/shared';
 import {
   AuthError,

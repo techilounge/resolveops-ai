@@ -5,7 +5,6 @@ import {
   ListQuerySchema,
   MemberListResponseSchema,
   MemberSchema,
-  type MembershipStatus,
   type TenantRole,
 } from '@resolveops/shared';
 import {
