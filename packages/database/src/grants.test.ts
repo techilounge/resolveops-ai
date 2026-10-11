@@ -23,7 +23,6 @@ describe('least-privilege roles and grants', () => {
   let fixture: IsolatedOrgsFixture;
 
   beforeAll(async () => {
-      if (!pool || !fixture) return;
     pool = await connectTestDatabase();
     if (!pool) return;
     await ensureMigrations(pool);
@@ -31,7 +30,6 @@ describe('least-privilege roles and grants', () => {
   });
 
   afterAll(async () => {
-      if (!pool || !fixture) return;
     await pool?.end();
   });
 

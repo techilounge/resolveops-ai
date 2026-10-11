@@ -83,6 +83,9 @@ export async function runAs<T extends Record<string, unknown>>(
       // Transaction-scoped, exactly like the API's `SET LOCAL app.org_id`.
       await client.query('SELECT set_config($1, $2, true)', ['app.org_id', options.orgId]);
     }
+    if (options.userId !== undefined) {
+      await client.query('SELECT set_config($1, $2, true)', ['app.user_id', options.userId]);
+    }
     await client.query(`SET LOCAL ROLE ${options.role}`);
     const result = await client.query<T>(sql, values);
     await client.query('COMMIT');
@@ -229,4 +232,24 @@ export function maintenancePool(connectionString: string): Pool {
   const url = new URL(connectionString);
   url.pathname = '/postgres';
   return new pg.Pool({ connectionString: url.toString(), connectionTimeoutMillis: 3000 });
+}
+
+/**
+ * Audit-reader role test password — the same pattern as the app-role password
+ * (migration 006 applies it): a known throwaway value for the ephemeral test
+ * database, applied idempotently so a fresh container needs no setup.
+ */
+export const AUDIT_READER_TEST_PASSWORD = 'resolveops-audit-reader-test';
+
+export function auditReaderDatabaseUrl(connectionString = testDatabaseUrl()): string {
+  const url = new URL(connectionString);
+  url.username = 'resolveops_audit_reader';
+  url.password = AUDIT_READER_TEST_PASSWORD;
+  return url.toString();
+}
+
+export async function ensureAuditReaderPassword(pool: Pool): Promise<void> {
+  await pool.query('ALTER ROLE resolveops_audit_reader LOGIN PASSWORD $1', [
+    AUDIT_READER_TEST_PASSWORD,
+  ]);
 }

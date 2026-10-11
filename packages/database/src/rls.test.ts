@@ -23,7 +23,6 @@ describe('row-level security tenant matrix', () => {
   let fixture: IsolatedOrgsFixture;
 
   beforeAll(async () => {
-      if (!pool || !fixture) return;
     pool = await connectTestDatabase();
     if (!pool) return;
     await ensureMigrations(pool);
@@ -31,7 +30,6 @@ describe('row-level security tenant matrix', () => {
   });
 
   afterAll(async () => {
-      if (!pool || !fixture) return;
     await pool?.end();
   });
 
@@ -237,6 +235,77 @@ describe('row-level security tenant matrix', () => {
         expect(row.relrowsecurity, row.relname).toBe(true);
         expect(row.relforcerowsecurity, row.relname).toBe(true);
       }
+    });
+  });
+
+  describe('memberships self-visibility (migration 007)', () => {
+    it('a caller with only app.user_id sees exactly their own membership rows across orgs', async () => {
+      if (!pool || !fixture) return;
+      const own = await runAs<{ organization_id: string; user_id: string }>(
+        pool!,
+        { role: 'resolveops_app', userId: fixture.userAId },
+        'SELECT organization_id, user_id FROM memberships',
+      );
+      // Owner of Org A (active) + the invited membership in Org B — and
+      // nothing else, ever.
+      expect(own.rows).toHaveLength(2);
+      for (const row of own.rows) {
+        expect(row.user_id).toBe(fixture.userAId);
+      }
+    });
+
+    it('cross-user enumeration stays denied — user B sees only their own row', async () => {
+      if (!pool || !fixture) return;
+      const own = await runAs<{ user_id: string }>(
+        pool!,
+        { role: 'resolveops_app', userId: fixture.userBId },
+        'SELECT user_id FROM memberships',
+      );
+      expect(own.rows).toHaveLength(1);
+      expect(own.rows[0].user_id).toBe(fixture.userBId);
+    });
+
+    it('no user context still matches nothing — deny-by-default preserved', async () => {
+      if (!pool || !fixture) return;
+      const none = await runAs(pool!, { role: 'resolveops_app' }, 'SELECT id FROM memberships');
+      expect(none.rowCount).toBe(0);
+    });
+
+    it('self-visibility adds no write path — UPDATE under user-only context filters to zero rows', async () => {
+      if (!pool || !fixture) return;
+      // A FOR SELECT policy contributes no USING clause to UPDATE; the rows
+      // the self policy can SEE are still not rows it may TOUCH. With no org
+      // context the org-scoped isolation policy filters every row out.
+      const update = await runAs(
+        pool!,
+        { role: 'resolveops_app', userId: fixture.userAId },
+        "UPDATE memberships SET role = role WHERE user_id = (SELECT nullif(current_setting('app.user_id', true), '')::uuid)",
+      );
+      expect(update.rowCount).toBe(0);
+    });
+
+    it('self-visibility adds no write path — INSERT with only user context is denied', async () => {
+      if (!pool || !fixture) return;
+      const promise = runAs(
+        pool!,
+        { role: 'resolveops_app', userId: fixture.userAId },
+        `INSERT INTO memberships (id, organization_id, user_id, role, status)
+         VALUES ($1, $2, $3, 'viewer', 'invited')`,
+        [randomUUID(), fixture.orgAId, fixture.userBId],
+      );
+      await expect(promise).rejects.toMatchObject({ code: INSUFFICIENT_PRIVILEGE });
+    });
+
+    it('org-context member listing still sees the full roster — permissive policies OR together', async () => {
+      if (!pool || !fixture) return;
+      const roster = await runAs<{ user_id: string }>(
+        pool!,
+        { role: 'resolveops_app', orgId: fixture.orgBId },
+        'SELECT user_id FROM memberships',
+      );
+      // Org B owner + the invited Org A user: inside a tenant context the
+      // member list keeps seeing every membership of that org.
+      expect(roster.rows).toHaveLength(2);
     });
   });
 });
