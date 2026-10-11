@@ -1,0 +1,24 @@
+{
+  "name": "@resolveops/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.0.2",
+    "@fastify/rate-limit": "10.3.0",
+    "@fastify/session": "11.1.4",
+    "@resolveops/shared": "*",
+    "fastify": "5.12.5",
+    "fastify-plugin": "5.1.0",
+    "openid-client": "6.8.8",
+    "pg": "8.23.1",
+    "zod": "4.3.5"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
