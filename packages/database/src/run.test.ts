@@ -31,6 +31,8 @@ describe('runMigrations', () => {
     pool = await connectTestDatabase();
     if (!pool) return;
     maintenance = maintenancePool(testDatabaseUrl());
+    pool.on('error', ignorePoolError);
+    maintenance.on('error', ignorePoolError);
   });
 
   afterAll(async () => {
@@ -55,6 +57,7 @@ describe('runMigrations', () => {
     const scratch = `resolveops_runner_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await createScratchDatabase(maintenance, scratch);
     const target = new pg.Pool({ connectionString: replaceDbName(testDatabaseUrl(), scratch) });
+    target.on('error', ignorePoolError);
     try {
       const first = await runMigrations({ pool: target });
       const second = await runMigrations({ pool: target });
@@ -76,8 +79,7 @@ describe('runMigrations', () => {
       );
       expect(recorded.rows.map((row) => row.name)).toEqual(first.applied);
     } finally {
-      await target.end();
-      await dropScratchDatabase(maintenance, scratch);
+      await endPoolAndDropScratchDatabase(target, maintenance, scratch);
     }
   });
 
@@ -87,6 +89,7 @@ describe('runMigrations', () => {
     const scratch = `resolveops_runner_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await createScratchDatabase(maintenance, scratch);
     const target = new pg.Pool({ connectionString: replaceDbName(testDatabaseUrl(), scratch) });
+    target.on('error', ignorePoolError);
     try {
       await runMigrations({ pool: target, migrationsDir: dir });
 
@@ -114,8 +117,7 @@ describe('runMigrations', () => {
         '005_app_sessions.sql',
       ]);
     } finally {
-      await target.end();
-      await dropScratchDatabase(maintenance, scratch);
+      await endPoolAndDropScratchDatabase(target, maintenance, scratch);
       await rm(dir, { recursive: true, force: true });
     }
   });
@@ -126,6 +128,7 @@ describe('runMigrations', () => {
     const scratch = `resolveops_runner_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await createScratchDatabase(maintenance, scratch);
     const target = new pg.Pool({ connectionString: replaceDbName(testDatabaseUrl(), scratch) });
+    target.on('error', ignorePoolError);
     try {
       await runMigrations({ pool: target, migrationsDir: dir });
       await rm(path.join(dir, '003_incident_comments.sql'));
@@ -134,8 +137,7 @@ describe('runMigrations', () => {
         MigrationChecksumError,
       );
     } finally {
-      await target.end();
-      await dropScratchDatabase(maintenance, scratch);
+      await endPoolAndDropScratchDatabase(target, maintenance, scratch);
       await rm(dir, { recursive: true, force: true });
     }
   });
@@ -151,6 +153,42 @@ describe('runMigrations', () => {
     ]);
   });
 });
+
+/**
+ * A teardown-killed connection must never crash the run: `DROP DATABASE ...
+ * WITH (FORCE)` can SIGTERM an idle pool client whose backend has not yet
+ * finished exiting (observed in CI as FATAL 57P01 from ProcessInterrupts
+ * arriving after `pool.end()` resolved), and pg re-emits a killed idle
+ * client's error on the Pool. With no listener that re-emit becomes an
+ * uncaught exception — failing the whole suite even when every assertion
+ * passes. The tests never assert on pool errors, so a no-op listener is the
+ * correct disposition for every pool this file creates.
+ */
+const ignorePoolError = (): void => {};
+
+/**
+ * End a scratch target pool and only then drop its database. `pool.end()`
+ * resolves before the server-side backend has necessarily processed the
+ * Terminate, so first wait (bounded) until pg_stat_activity reports zero
+ * backends for the scratch database — the FORCE drop then has nothing to
+ * SIGTERM, and the no-op error listeners cover any residual race.
+ */
+async function endPoolAndDropScratchDatabase(
+  target: Pool,
+  maintenance: Pool,
+  name: string,
+): Promise<void> {
+  await target.end();
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const remaining = await maintenance.query<{ count: number }>(
+      'SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname = $1',
+      [name],
+    );
+    if ((remaining.rows[0]?.count ?? 0) === 0) break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  await dropScratchDatabase(maintenance, name);
+}
 
 async function copyMigrationsToTempDir(): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), 'resolveops-migrations-'));
