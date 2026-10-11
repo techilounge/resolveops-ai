@@ -22,13 +22,40 @@ export {
   type PaginatedResponse,
 } from './pagination';
 export { TENANT_ROLES, TenantRoleSchema, type TenantRole, type TenantContext } from './tenancy';
-export { MembershipSchema, MeResponseSchema, type Membership, type MeResponse } from './identity';
 export {
+  ActiveOrganizationResponseSchema,
+  MeUserSchema,
+  MembershipSchema,
+  MembershipStatusSchema,
+  MeResponseSchema,
+  SwitchOrganizationRequestSchema,
+  type ActiveOrganizationResponse,
+  type MeUser,
+  type Membership,
+  type MembershipStatus,
+  type MeResponse,
+  type SwitchOrganizationRequest,
+} from './identity';
+export {
+  CreateInvitationRequestSchema,
   CreateOrganizationRequestSchema,
+  MemberListResponseSchema,
+  MemberSchema,
   OrganizationSchema,
+  type CreateInvitationRequest,
   type CreateOrganizationRequest,
+  type Member,
+  type MemberListResponse,
   type Organization,
 } from './organizations';
+export {
+  AuditEventListResponseSchema,
+  AuditEventSchema,
+  ListAuditEventsQuerySchema,
+  type AuditEvent,
+  type AuditEventListResponse,
+  type ListAuditEventsQuery,
+} from './audit';
 export {
   CreateIncidentRequestSchema,
   IncidentDtoSchema,

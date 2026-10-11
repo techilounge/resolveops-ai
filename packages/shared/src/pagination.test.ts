@@ -3,14 +3,16 @@ import { ListQuerySchema, PaginatedResponseSchema } from './pagination';
 import { IncidentDtoSchema, type IncidentDto } from './incidents';
 
 const validIncident: IncidentDto = {
-  id: 'INC-2026-1047',
+  id: '0b9c4619-9ec6-4a11-9a31-2f3f2c17b8a2',
   title: 'BitLocker compliance incident',
   description: 'Synthetic lab incident for contract testing.',
   severity: 'high',
-  status: 'open',
+  status: 'investigating',
+  assigneeUserId: null,
+  createdBy: '5e2f4b5a-3f21-4e0e-8c1d-6a2b7f0d3c99',
+  version: 1,
   createdAt: '2026-10-08T09:00:00.000Z',
-  affectedDevices: 47,
-  tags: ['bitlocker', 'windows-11'],
+  updatedAt: '2026-10-08T09:00:00.000Z',
 };
 
 describe('ListQuerySchema', () => {
