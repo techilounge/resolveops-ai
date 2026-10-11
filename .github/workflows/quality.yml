@@ -106,6 +106,14 @@ jobs:
       # the health response (HealthResponseSchema) and the error taxonomy
       # (ApiErrorSchema, exercised via an unknown route -> 404).
       - name: Boot API and assert shared envelopes
+        env:
+          # The fail-fast env contract stays boot-blocking in real
+          # deployments, so the smoke supplies explicit throwaway values
+          # rather than weakening requireEnv. The pg pool is lazy and
+          # /healthz is service-only: no database I/O happens here.
+          DATABASE_URL: postgresql://smoke:smoke@127.0.0.1:5432/smoke_never_connected
+          COOKIE_SECRET: ci-smoke-cookie-key-ci-smoke-cookie-key
+          PUBLIC_BASE_URL: http://127.0.0.1:3000
         run: |
           node "$RUNNER_TEMP/api-smoke/server.cjs" >/tmp/api-smoke.log 2>&1 &
           API_PID=$!

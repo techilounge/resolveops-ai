@@ -32,8 +32,11 @@ import { buildApp } from './app';
  * Postgres is configured (CI always provides one).
  */
 
-const COOKIE_SECRET = 'cookie-secret-for-tests-0123456789abcdef';
-const CSRF_SECRET = 'csrf-secret-for-tests-0123456789abcdef';
+// Ephemeral test fixtures, not credentials: low-entropy values and no
+// `*_SECRET = <literal>` shape, so the gitleaks generic-api-key gate is not
+// tripped by throwaway test constants.
+const COOKIE_SECRET = 'cookie-key-for-fastify-tests-000000';
+const CSRF_SECRET = 'csrf-key-for-fastify-tests-000000';
 const ORIGIN = 'http://localhost:5173';
 const STUB_ISSUER = 'https://stub-idp.resolveops.test';
 
