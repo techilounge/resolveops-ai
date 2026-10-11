@@ -1,0 +1,368 @@
+/* Live app styles (P1-5) — reuses the demo's visual language per
+   docs/DESIGN-TOKENS.md: dark surface #0d1b2c, teal accent #1dafa2,
+   light canvas #f4f7fa, white panels, ink #18283b. Deliberately separate
+   from style.css so the demo stays byte-identical. */
+
+:root {
+  --live-ink: #18283b;
+  --live-canvas: #f4f7fa;
+  --live-panel: #fff;
+  --live-border: #dde6ee;
+  --live-dark: #0d1b2c;
+  --live-dark-soft: #20364d;
+  --live-accent: #1dafa2;
+  --live-accent-deep: #0d9989;
+  --live-kicker: #119789;
+  --live-muted: #60768c;
+  --live-danger: #b3261e;
+}
+
+.live-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--live-canvas);
+  color: var(--live-ink);
+}
+
+.live-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: var(--live-dark);
+  color: #d0dceb;
+  padding: 14px 24px;
+}
+
+.live-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+}
+
+.live-brand-icon {
+  background: var(--live-accent);
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #fff;
+}
+
+.live-brand strong {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 17px;
+  letter-spacing: -0.6px;
+  color: #fff;
+}
+
+.live-brand strong span {
+  color: #6eddd0;
+}
+
+.live-org {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-org-label {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  color: #90a8c1;
+  text-transform: uppercase;
+}
+
+.live-org select {
+  font: inherit;
+  color: var(--live-ink);
+  background: #fff;
+  border: 1px solid var(--live-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  max-width: 260px;
+}
+
+.live-org select:disabled {
+  opacity: 0.6;
+}
+
+.live-org-pending {
+  font-size: 12px;
+  color: #b9d4df;
+}
+
+.live-org-failure {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  width: min(360px, 84vw);
+}
+
+.live-account {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.live-user-email {
+  font-size: 13px;
+  color: #b9d4df;
+}
+
+.live-nav {
+  display: flex;
+  gap: 6px;
+  padding: 10px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--live-border);
+  overflow-x: auto;
+}
+
+.live-nav a {
+  color: var(--live-muted);
+  text-decoration: none;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.live-nav a:hover {
+  background: #e9eef2;
+  color: var(--live-ink);
+}
+
+.live-nav a.active {
+  background: var(--live-dark-soft);
+  color: #fff;
+}
+
+.live-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 28px 20px;
+}
+
+.live-panel,
+.live-onboarding {
+  width: min(760px, 100%);
+}
+
+.live-panel {
+  background: var(--live-panel);
+  border: 1px solid var(--live-border);
+  border-radius: 14px;
+  padding: 26px 28px;
+}
+
+.live-kicker {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  color: var(--live-kicker);
+  margin-bottom: 6px;
+}
+
+.live-panel h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.live-lede {
+  color: var(--live-muted);
+  margin: 0 0 18px;
+}
+
+.live-onboarding-orgs h2,
+.live-form h2 {
+  font-size: 15px;
+  margin: 18px 0 10px;
+}
+
+.live-org-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.live-form {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.live-form label {
+  font-size: 13px;
+  color: var(--live-muted);
+}
+
+.live-form input {
+  font: inherit;
+  width: min(360px, 100%);
+  padding: 10px 12px;
+  border: 1px solid var(--live-border);
+  border-radius: 8px;
+  color: var(--live-ink);
+  background: #fbfcfe;
+}
+
+.live-field-error {
+  color: var(--live-danger);
+  font-size: 13px;
+  margin: 0;
+}
+
+.live-button {
+  font: inherit;
+  background: var(--live-accent);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-button:hover {
+  background: var(--live-accent-deep);
+}
+
+.live-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.live-button-subtle {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+}
+
+.live-button-subtle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Async-state cards — loading, error, denied, empty. */
+
+.state-fullscreen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--live-canvas);
+  color: var(--live-ink);
+  padding: 24px;
+}
+
+.state-fullscreen .state-card {
+  background: var(--live-panel);
+  border: 1px solid var(--live-border);
+  border-radius: 14px;
+  padding: 30px 34px;
+  max-width: 460px;
+  text-align: center;
+}
+
+.state-fullscreen h1 {
+  font-size: 20px;
+  margin: 6px 0 10px;
+}
+
+.state-card h1,
+.state-card h2 {
+  margin: 4px 0 8px;
+  font-size: 17px;
+}
+
+.state-card p {
+  color: var(--live-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+.state-detail {
+  font-size: 13px;
+}
+
+.state-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid #cbe9e5;
+  border-top-color: var(--live-accent);
+  border-radius: 50%;
+  display: inline-block;
+  animation: live-spin 0.9s linear infinite;
+}
+
+@keyframes live-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state-error {
+  border-top: 3px solid var(--live-danger);
+}
+
+.state-denied {
+  border-top: 3px solid #d97706;
+  background: #fff8ef;
+  border: 1px solid #f2ddba;
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.state-denied h2 {
+  color: #92400e;
+}
+
+.state-denied p {
+  color: #7c5a1c;
+  margin-bottom: 10px;
+}
+
+.state-empty {
+  border: 1px dashed #c4d4e0;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 18px 20px;
+  margin-top: 14px;
+}
+
+/* Small screens: no horizontal overflow (AGENTS.md). */
+
+@media (max-width: 720px) {
+  .live-header {
+    padding: 12px 16px;
+  }
+
+  .live-org {
+    flex-wrap: wrap;
+  }
+
+  .live-nav {
+    padding: 8px 12px;
+  }
+
+  .live-panel {
+    padding: 20px;
+  }
+
+  .live-org-failure {
+    position: static;
+    width: 100%;
+    margin-top: 10px;
+  }
+}
