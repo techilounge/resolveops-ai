@@ -22,16 +22,48 @@ export {
   type PaginatedResponse,
 } from './pagination';
 export { TENANT_ROLES, TenantRoleSchema, type TenantRole, type TenantContext } from './tenancy';
-export { MembershipSchema, MeResponseSchema, type Membership, type MeResponse } from './identity';
 export {
+  ActiveOrganizationResponseSchema,
+  MeUserSchema,
+  MembershipSchema,
+  MembershipStatusSchema,
+  MeResponseSchema,
+  SwitchOrganizationRequestSchema,
+  type ActiveOrganizationResponse,
+  type MeUser,
+  type Membership,
+  type MembershipStatus,
+  type MeResponse,
+  type SwitchOrganizationRequest,
+} from './identity';
+export {
+  CreateInvitationRequestSchema,
   CreateOrganizationRequestSchema,
+  CurrentOrganizationResponseSchema,
+  MemberListResponseSchema,
+  MemberSchema,
+  OrganizationCreatedResponseSchema,
   OrganizationSchema,
+  type CreateInvitationRequest,
   type CreateOrganizationRequest,
+  type CurrentOrganizationResponse,
+  type Member,
+  type MemberListResponse,
   type Organization,
+  type OrganizationCreatedResponse,
 } from './organizations';
+export {
+  AuditEventListResponseSchema,
+  AuditEventSchema,
+  ListAuditEventsQuerySchema,
+  type AuditEvent,
+  type AuditEventListResponse,
+  type ListAuditEventsQuery,
+} from './audit';
 export {
   CreateIncidentRequestSchema,
   IncidentDtoSchema,
+  IncidentIdParamsSchema,
   IncidentListResponseSchema,
   IncidentResponseSchema,
   IncidentSeveritySchema,
@@ -40,6 +72,7 @@ export {
   PatchIncidentRequestSchema,
   type CreateIncidentRequest,
   type IncidentDto,
+  type IncidentIdParams,
   type IncidentListResponse,
   type IncidentResponse,
   type IncidentSeverity,

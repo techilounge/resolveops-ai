@@ -61,6 +61,8 @@ export interface RunAsOptions {
   role: string;
   /** Tenant context; omit for the no-context (deny-by-default) case. */
   orgId?: string;
+  /** Acting user for user-scoped policies (migration 007 self-visibility). */
+  userId?: string;
 }
 
 /**
@@ -82,6 +84,9 @@ export async function runAs<T extends Record<string, unknown>>(
     if (options.orgId !== undefined) {
       // Transaction-scoped, exactly like the API's `SET LOCAL app.org_id`.
       await client.query('SELECT set_config($1, $2, true)', ['app.org_id', options.orgId]);
+    }
+    if (options.userId !== undefined) {
+      await client.query('SELECT set_config($1, $2, true)', ['app.user_id', options.userId]);
     }
     await client.query(`SET LOCAL ROLE ${options.role}`);
     const result = await client.query<T>(sql, values);
@@ -229,4 +234,40 @@ export function maintenancePool(connectionString: string): Pool {
   const url = new URL(connectionString);
   url.pathname = '/postgres';
   return new pg.Pool({ connectionString: url.toString(), connectionTimeoutMillis: 3000 });
+}
+
+/**
+ * Audit-reader role test password — the same pattern as the app-role password
+ * (migration 006 applies it): a known throwaway value for the ephemeral test
+ * database, applied idempotently so a fresh container needs no setup.
+ */
+export const AUDIT_READER_TEST_PASSWORD = 'resolveops-audit-reader-test';
+
+export function auditReaderDatabaseUrl(connectionString = testDatabaseUrl()): string {
+  const url = new URL(connectionString);
+  url.username = 'resolveops_audit_reader';
+  url.password = AUDIT_READER_TEST_PASSWORD;
+  return url.toString();
+}
+
+export async function ensureAuditReaderPassword(pool: Pool): Promise<void> {
+  // Postgres utility statements do not accept bind parameters — interpolate
+  // the literal the same way ensureAppRolePassword does for the app role.
+  // The advisory lock serializes role bootstrap across parallel vitest
+  // workers: concurrent ALTER ROLE on one role races (tuple concurrently
+  // updated). Lock is session-scoped, so it is taken and released on ONE
+  // dedicated connection.
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock(hashtext('resolveops-test-role-bootstrap'))");
+    try {
+      await client.query(
+        `ALTER ROLE resolveops_audit_reader LOGIN PASSWORD '${AUDIT_READER_TEST_PASSWORD}'`,
+      );
+    } finally {
+      await client.query("SELECT pg_advisory_unlock(hashtext('resolveops-test-role-bootstrap'))");
+    }
+  } finally {
+    client.release();
+  }
 }

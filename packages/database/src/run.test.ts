@@ -69,6 +69,7 @@ describe('runMigrations', () => {
         '004_audit_events.sql',
         '005_app_sessions.sql',
         '006_users_grants.sql',
+        '007_memberships_self_visibility.sql',
       ]);
       expect(second.applied).toEqual([]);
       expect(second.skipped).toEqual(first.applied);
@@ -117,6 +118,7 @@ describe('runMigrations', () => {
         '004_audit_events.sql',
         '005_app_sessions.sql',
         '006_users_grants.sql',
+        '007_memberships_self_visibility.sql',
       ]);
     } finally {
       await endPoolAndDropScratchDatabase(target, maintenance, scratch);
@@ -153,6 +155,7 @@ describe('runMigrations', () => {
       '004_audit_events.sql',
       '005_app_sessions.sql',
       '006_users_grants.sql',
+      '007_memberships_self_visibility.sql',
     ]);
   });
 });

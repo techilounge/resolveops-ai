@@ -1,10 +1,12 @@
 // Reserved later-phase routes — the Blueprint §11 v1 rows whose contract
-// work is outside PROD-004's first set. Named only: no schemas, no handlers,
-// no client. The list is exactly the 13 rows of the §11 table that remain
-// after the R1 rows covered by implemented DTOs (me, organizations create +
-// current, incidents list/create, incidents view/patch), so this file plus
-// the implemented DTOs transcribe the full §11 surface in the shape the
-// eventual OpenAPI 3.1 document will take.
+// work is outside the implemented DTO surface. Named only: no schemas, no
+// handlers, no client. The list is exactly the 12 rows of the §11 table that
+// remain after the R1 rows covered by implemented DTOs (me, organizations
+// create + current, incidents list/create, incidents view/patch) plus
+// audit-events — implemented in P1-4 (Phase 1 spec §6, delta D3), which owns
+// its contract in src/audit.ts and removed the row from this reservation —
+// so this file plus the implemented DTOs transcribe the full §11 surface in
+// the shape the eventual OpenAPI 3.1 document will take.
 export type ReservedRoute = {
   method: 'GET' | 'POST' | 'PATCH';
   path: string;
@@ -25,6 +27,5 @@ export const RESERVED_ROUTES: readonly ReservedRoute[] = [
   { method: 'POST', path: '/api/v1/incidents/:id/proposals', family: 'proposals', blueprintPhase: 4 },
   { method: 'POST', path: '/api/v1/proposals/:id/approval-requests', family: 'proposals', blueprintPhase: 4 },
   { method: 'POST', path: '/api/v1/approvals/:id/decision', family: 'approvals', blueprintPhase: 4 },
-  { method: 'GET', path: '/api/v1/audit-events', family: 'audit', blueprintPhase: 1 },
   { method: 'GET', path: '/api/v1/usage', family: 'usage', blueprintPhase: 5 },
 ] as const;
