@@ -106,7 +106,7 @@ A live-session flood on `POST /api/v1/incidents` against the production wiring (
 
 ### `ensureAppRolePassword` race — the known issue from P1-4 is now closed upstream
 
-P1-4's entry disclosed (report-only) that `packages/auth`'s test role bootstrap races under parallel workers. Reproduced locally once in two fresh-database full-suite runs (and previously in PR #27's CI on an identical SHA): every worker's `connectAuthTestDatabase` ran `ALTER ROLE resolveops_app LOGIN PASSWORD` concurrently on the virgin catalog ("tuple concurrently updated"). Fixed in `ce255c4` in the owning package — the minimal session-scoped `pg_advisory_lock` guard on one dedicated connection, mirroring (and sharing the lock key with) the audit-reader bootstrap in `packages/database/src/support/db.ts`. Two consecutive fresh-database full-suite runs after the fix: green (below).
+P1-4's entry disclosed (report-only) that `packages/auth`'s test role bootstrap races under parallel workers. Reproduced locally once in two fresh-database full-suite runs (and previously in PR #27's CI on an identical SHA): every worker's `connectAuthTestDatabase` ran `ALTER ROLE resolveops_app LOGIN PASSWORD` concurrently on the virgin catalog ("tuple concurrently updated"). Fixed upstream in the owning package (commit `fix(auth): serialize test role bootstrap with an advisory lock` on this branch) — the minimal session-scoped `pg_advisory_lock` guard on one dedicated connection, mirroring (and sharing the lock key with) the audit-reader bootstrap in `packages/database/src/support/db.ts`. Two consecutive fresh-database full-suite runs after the fix: green (below).
 
 ### Suite totals at the P1-7 head — fresh-from-empty PostgreSQL 17, locally and in CI's postgres:17 job
 
