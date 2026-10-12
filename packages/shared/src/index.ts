@@ -81,6 +81,16 @@ export {
   type PatchIncidentRequest,
 } from './incidents';
 export {
+  CreateIncidentCommentRequestSchema,
+  IncidentCommentDtoSchema,
+  IncidentCommentListResponseSchema,
+  ListIncidentCommentsQuerySchema,
+  type CreateIncidentCommentRequest,
+  type IncidentCommentDto,
+  type IncidentCommentListResponse,
+  type ListIncidentCommentsQuery,
+} from './comments';
+export {
   DeviceDtoSchema,
   DeviceListResponseSchema,
   InventorySummaryDtoSchema,

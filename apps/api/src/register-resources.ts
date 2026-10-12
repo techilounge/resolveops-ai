@@ -5,6 +5,7 @@ import { meRoutes } from './routes/me';
 import { organizationRoutes } from './routes/organizations';
 import { memberRoutes } from './routes/members';
 import { incidentRoutes } from './routes/incidents';
+import { incidentCommentRoutes } from './routes/comments';
 import { auditEventRoutes } from './routes/audit-events';
 
 export interface ResourceRouteDeps {
@@ -46,6 +47,8 @@ export const registerResourceRoutes: FastifyPluginCallback<ResourceRouteDeps> = 
   app.register(organizationRoutes, shared);
   app.register(memberRoutes, shared);
   app.register(incidentRoutes, shared);
+  // Delta D4 (P1-4 addendum): the §4.4 detail screen's comment surface.
+  app.register(incidentCommentRoutes, shared);
   // Delta D3: the audit surface needs the SELECT-only reader pool; without
   // one the route does not exist (fail closed by absence).
   if (deps.auditReaderPool) {
