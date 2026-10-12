@@ -10,7 +10,7 @@ import { MemoryRouter, useLocation } from 'react-router';
 import { AppRoutes } from './routes';
 import { SessionProvider } from './session/SessionProvider';
 import { resetClientState, setUnauthorizedHandler } from './api/client';
-import { TEST_IDS, installFetchStub, meFixture, membershipFixture, orgFixture, type FetchHandler, type FetchStub } from './testing/fetchStub';
+import { TEST_IDS, installFetchStub, meFixture, membershipFixture, memberFixture, orgFixture, pageEnvelope, type FetchHandler, type FetchStub } from './testing/fetchStub';
 
 const { orgA: ORG_A_ID, orgB: ORG_B_ID } = TEST_IDS;
 
@@ -48,7 +48,8 @@ function renderApp(initialEntries: string[]): void {
   );
 }
 
-/** Standard authenticated stub: /me with two orgs, Org A active. */
+/** Standard authenticated stub: /me with two orgs, Org A active, and the
+ * real P1-6 screens' list endpoints (they mount with the shell). */
 function stubSession(): FetchStub {
   const handler: FetchHandler = (request) => {
     if (request.method === 'GET' && request.url.endsWith('/api/v1/me')) {
@@ -59,6 +60,12 @@ function stubSession(): FetchStub {
     }
     if (request.method === 'POST' && request.url.endsWith('/api/v1/me/active-organization')) {
       return { status: 204, body: null };
+    }
+    if (request.method === 'GET' && request.url.includes('/api/v1/incidents?')) {
+      return { status: 200, body: pageEnvelope([], 1, 25, 0) };
+    }
+    if (request.method === 'GET' && request.url.includes('/organizations/current/members')) {
+      return { status: 200, body: pageEnvelope([memberFixture()], 1, 25, 1) };
     }
     return undefined;
   };
@@ -125,8 +132,11 @@ describe('authenticated shell', () => {
 
     renderApp(['/app/incidents']);
 
-    expect(await screen.findByText('Incident workspace')).toBeDefined();
-    expect(screen.getByText('avery@example.com')).toBeDefined();
+    // Shell markers: the brand, the account email, and the Phase 1 nav.
+    expect(await screen.findByText('avery@example.com')).toBeDefined();
+    expect(screen.getByText('ResolveOps', { selector: 'strong' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Incidents' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Team' })).toBeDefined();
     const selector = screen.getByLabelText(/organization/i) as HTMLSelectElement;
     await waitFor(() => expect(selector.value).toBe(ORG_A_ID));
     // Every membership labels with its org name (server-resolved in /me);
@@ -137,14 +147,14 @@ describe('authenticated shell', () => {
     stub.restore();
   });
 
-  it('navigates to the Team placeholder and later-phase placeholders without 404s', async () => {
+  it('navigates to the real team screen and later-phase placeholders without 404s', async () => {
     const stub = stubSession();
 
     renderApp(['/app/incidents']);
-    await screen.findByText('Incident workspace');
+    await screen.findByText('avery@example.com');
 
     fireEvent.click(screen.getByRole('link', { name: 'Team' }));
-    expect(await screen.findByText('Team administration')).toBeDefined();
+    expect(await screen.findByText('Invite a teammate')).toBeDefined();
 
     fireEvent.click(screen.getByRole('link', { name: 'Devices' }));
     expect(await screen.findByText(/Devices is not yet available/i)).toBeDefined();
