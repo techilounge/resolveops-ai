@@ -309,3 +309,159 @@ describe('row-level security tenant matrix', () => {
     });
   });
 });
+
+/**
+ * P1-7 adversarial extension (Phase 1 Blueprint §7): the SQL-layer matrix
+ * completed to EVERY tenant-owned table — the original matrix above omitted
+ * `incident_comments` (P1-4 addendum) and probes `audit_events` only through
+ * the audit-reader role — plus roster-listing negatives without tenant
+ * context and per-table guessed-UUID probes.
+ */
+describe('P1-7 adversarial extension: every tenant table, roster without context', () => {
+  let pool: Pool | undefined;
+  let fixture: IsolatedOrgsFixture;
+
+  beforeAll(async () => {
+    pool = await connectTestDatabase();
+    if (!pool) return;
+    await ensureMigrations(pool);
+    fixture = await seedIsolatedOrgs(pool);
+  });
+
+  afterAll(async () => {
+    await pool?.end();
+  });
+
+  describe('with Org A context, every tenant-owned table shows zero Org B rows', () => {
+    it.each([
+      ['incidents', 'resolveops_app'],
+      ['incident_comments', 'resolveops_app'],
+      ['memberships', 'resolveops_app'],
+    ] as const)('%s: Org B rows are invisible (count over organization_id = Org B)', async (table, role) => {
+      if (!pool || !fixture) return;
+      const result = await runAs<{ count: string }>(
+        pool!,
+        { role, orgId: fixture.orgAId },
+        `SELECT count(*)::text AS count FROM ${table} WHERE organization_id = $1`,
+        [fixture.orgBId],
+      );
+      expect(result.rows[0].count).toBe('0');
+    });
+
+    it('audit_events via the audit reader: Org B rows are invisible from Org A context', async () => {
+      if (!pool || !fixture) return;
+      const result = await runAs<{ count: string }>(
+        pool!,
+        { role: 'resolveops_audit_reader', orgId: fixture.orgAId },
+        'SELECT count(*)::text AS count FROM audit_events WHERE organization_id = $1',
+        [fixture.orgBId],
+      );
+      expect(result.rows[0].count).toBe('0');
+    });
+
+    it('audit_events via the app role is a grant denial outright — no read, no count, ever', async () => {
+      if (!pool || !fixture) return;
+      const promise = runAs(
+        pool!,
+        { role: 'resolveops_app', orgId: fixture.orgAId },
+        'SELECT count(*) FROM audit_events',
+      );
+      await expect(promise).rejects.toMatchObject({ code: INSUFFICIENT_PRIVILEGE });
+    });
+  });
+
+  describe('guessed UUIDs match zero rows in every tenant table', () => {
+    it.each([
+      ['incidents', 'resolveops_app'],
+      ['incident_comments', 'resolveops_app'],
+      ['memberships', 'resolveops_app'],
+    ] as const)('%s: a guessed uuid matches zero rows from Org A context', async (table, role) => {
+      if (!pool || !fixture) return;
+      const guessed = randomUUID();
+      const result = await runAs(
+        pool!,
+        { role, orgId: fixture.orgAId },
+        `SELECT id FROM ${table} WHERE id = $1`,
+        [guessed],
+      );
+      expect(result.rowCount).toBe(0);
+    });
+
+    it('audit_events: a guessed uuid matches zero rows via the audit reader', async () => {
+      if (!pool || !fixture) return;
+      const result = await runAs(
+        pool!,
+        { role: 'resolveops_audit_reader', orgId: fixture.orgAId },
+        'SELECT id FROM audit_events WHERE id = $1',
+        [randomUUID()],
+      );
+      expect(result.rowCount).toBe(0);
+    });
+
+    it('incident_comments: Org B comments are not enumerable from Org A by incident id either', async () => {
+      if (!pool || !fixture) return;
+      const result = await runAs(
+        pool!,
+        { role: 'resolveops_app', orgId: fixture.orgAId },
+        'SELECT id FROM incident_comments WHERE incident_id = $1',
+        [fixture.incidentBId],
+      );
+      expect(result.rowCount).toBe(0);
+    });
+  });
+
+  describe('roster listing without tenant context (members-route query shape)', () => {
+    // The exact query shape the roster route runs (memberships JOIN users) —
+    // proven unable to list anything without an org context.
+    const ROSTER_SQL = `SELECT m.user_id, u.email, u.display_name, m.role, m.status
+           FROM memberships m
+           JOIN users u ON u.id = m.user_id
+          WHERE m.organization_id = $1
+          ORDER BY m.created_at ASC, m.user_id ASC`;
+
+    it('with NO tenant context the roster query lists zero rows — no user emails leak', async () => {
+      if (!pool || !fixture) return;
+      const none = await runAs<{ user_id: string }>(
+        pool!,
+        { role: 'resolveops_app' },
+        ROSTER_SQL,
+        [fixture.orgAId],
+      );
+      // Even with the org id as a BIND PARAMETER (not the RLS setting), the
+      // unscoped table contributes no rows: the policy filters memberships
+      // to nothing first.
+      expect(none.rowCount).toBe(0);
+    });
+
+    it('with ONLY the user context (no org), the roster query shows only the caller\'s own row', async () => {
+      if (!pool || !fixture) return;
+      const own = await runAs<{ user_id: string }>(
+        pool!,
+        { role: 'resolveops_app', userId: fixture.userBId },
+        ROSTER_SQL,
+        [fixture.orgBId],
+      );
+      // User B's own Org B membership — and NOT user A's invited membership
+      // in the same org, which the org context would show but the user-only
+      // context must not.
+      expect(own.rows).toHaveLength(1);
+      expect(own.rows[0].user_id).toBe(fixture.userBId);
+    });
+
+    it('user-only context cannot enumerate another org\'s roster by org id (007 cross-user negative)', async () => {
+      if (!pool || !fixture) return;
+      const probed = await runAs<{ user_id: string }>(
+        pool!,
+        { role: 'resolveops_app', userId: fixture.userAId },
+        'SELECT user_id FROM memberships WHERE organization_id = $1',
+        [fixture.orgBId],
+      );
+      // User A holds an invited membership in Org B — visible as their OWN
+      // row — but the enumeration attempt returns only rows where
+      // user_id = the acting user, so Org B's owner (user B) never appears.
+      for (const row of probed.rows) {
+        expect(row.user_id).toBe(fixture.userAId);
+      }
+    });
+  });
+});
