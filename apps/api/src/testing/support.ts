@@ -43,6 +43,8 @@ export interface TestContext {
   appRolePool: Pool;
   superuserPool: Pool;
   fixture: IsolatedOrgsFixture;
+  /** The stub IdP backing `login`/`member` — exposed for flow-level probes. */
+  stub: StubIdp;
   /** Signs in (stub IdP) and seeds the caller's membership in the given org. */
   member: (options?: MemberOptions) => Promise<TestSession>;
   /** Signs in (stub IdP) with NO membership — the no-organization user. */
@@ -119,7 +121,9 @@ async function connectAuthTestDatabaseWithRetry(
   return undefined;
 }
 
-export async function createTestContext(): Promise<TestContext | undefined> {
+export async function createTestContext(
+  overrides: Partial<AuthOptions> = {},
+): Promise<TestContext | undefined> {
   const { attachNoOpPoolErrorListeners } = await import('@resolveops/auth/testing');
   const setup = await connectAuthTestDatabaseWithRetry();
   if (!setup) return undefined;
@@ -144,6 +148,9 @@ export async function createTestContext(): Promise<TestContext | undefined> {
     // Route tests exercise per-route behavior; P1-3's dedicated suite proves
     // the rate limiter. A high ceiling keeps these suites hermetic.
     rateLimitMax: 100_000,
+    // Overrides let adversarial suites build the same app with, e.g., a tiny
+    // rate-limit budget; explicit overrides win over the hermetic defaults.
+    ...overrides,
   };
   const app = buildApp({ auth, auditReaderPool });
   await app.ready();
@@ -207,7 +214,7 @@ export async function createTestContext(): Promise<TestContext | undefined> {
     return session;
   };
 
-  return { app, appRolePool, superuserPool, fixture, member, loginOnly, login };
+  return { app, appRolePool, superuserPool, fixture, stub, member, loginOnly, login };
 }
 
 export async function destroyTestContext(context: TestContext): Promise<void> {

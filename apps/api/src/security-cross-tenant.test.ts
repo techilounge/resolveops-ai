@@ -393,6 +393,7 @@ describe('P1-7 cross-tenant adversarial matrix (HTTP, Blueprint §7)', () => {
       const f = context.fixture;
       const res = await mutate(context, ownerA, 'POST', '/api/v1/incidents', {
         title: 'substitution probe',
+        description: 'P1-7 substitution probe',
         severity: 'high',
         organizationId: f.orgBId,
       });
