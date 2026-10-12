@@ -190,4 +190,58 @@ describe('least-privilege roles and grants', () => {
       ).rejects.toMatchObject({ code: INSUFFICIENT_PRIVILEGE });
     });
   });
+
+  /**
+   * P1-7 (Blueprint §7): immutability asserted at the ACL catalog level —
+   * independent of RLS policy state and of whatever the current behavior
+   * happens to be, the grants themselves must be append-only. Read via
+   * aclexplode() so the assertion does not depend on information_schema
+   * visibility rules (role_table_grants hides grants unrelated to the
+   * current role's membership chain).
+   */
+  describe('P1-7 grant catalog: audit_events is append-only at the ACL level', () => {
+    interface GrantRow {
+      grantee: string;
+      privilege_type: string;
+    }
+
+    async function auditEventGrants(database: Pool): Promise<GrantRow[]> {
+      const result = await database.query<GrantRow>(
+        `SELECT grantee::regrole::text AS grantee, a.privilege_type
+           FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+           JOIN LATERAL aclexplode(c.relacl) a ON true
+          WHERE n.nspname = 'public' AND c.relname = 'audit_events'
+          ORDER BY grantee, a.privilege_type`,
+      );
+      return result.rows;
+    }
+
+    it('resolveops_app holds exactly {INSERT} on audit_events', async () => {
+      if (!pool) return;
+      const grants = await auditEventGrants(pool!);
+      expect(grants.filter((g) => g.grantee === 'resolveops_app')).toEqual([
+        { grantee: 'resolveops_app', privilege_type: 'INSERT' },
+      ]);
+    });
+
+    it('no tenant role holds UPDATE, DELETE, or TRUNCATE on audit_events', async () => {
+      if (!pool) return;
+      const grants = await auditEventGrants(pool!);
+      const mutators = grants.filter(
+        (g) =>
+          ['resolveops_app', 'resolveops_audit_reader', 'resolveops_migrator'].includes(g.grantee) &&
+          ['UPDATE', 'DELETE', 'TRUNCATE'].includes(g.privilege_type),
+      );
+      expect(mutators).toEqual([]);
+    });
+
+    it('resolveops_audit_reader holds exactly {SELECT} on audit_events', async () => {
+      if (!pool) return;
+      const grants = await auditEventGrants(pool!);
+      expect(grants.filter((g) => g.grantee === 'resolveops_audit_reader')).toEqual([
+        { grantee: 'resolveops_audit_reader', privilege_type: 'SELECT' },
+      ]);
+    });
+  });
 });
