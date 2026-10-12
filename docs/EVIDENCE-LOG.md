@@ -61,3 +61,53 @@ The Phase 1 spec §4.4 detail screen requires comments, but §4.3's route enumer
 **No audit rows for comments — the delta-D4 reading:** the spec §7 audit list (login, logout, org create, role/invite change, incident create/update/assign, denials on sensitive ops) does not include comments, and a comment is already-attributed data rather than an authorization transition — so the routes write no audit event, and a test asserts the org's audit-event count is unchanged by a comment create.
 
 Coverage: happy create/list, validation 400 (empty, oversized, missing, unknown key), foreign/nonexistent incident 404 with zero data echo and no persisted row, page-tiling consistency against a full fetch, replay-stable ordering, per-row `authorDisplayName` join correctness verified against the stored users rows, foreign-org 404 (never an empty list), and unauthenticated 401s. Suite totals after the addendum: **82/82 apps/api across 6 files**; shared/database suites unchanged; strict `tsc`, root ESLint, and `npm audit` clean.
+
+---
+
+## Phase 1 Part B — adversarial cross-tenant security matrix (P1-7, recorded 2026-10-12)
+
+The independent adversarial pass the master prompts require before the human security review (P1-8): attacker, not fixer — route implementations and `apps/web` untouched (`git diff` against `a34cd2b` carries tests, the test harness, and two test-infrastructure fixes only). Branch `feat/p1-tenant-matrix`, PR #28. Every attack in the matrix starts from state proven live (a 200 read, a fresh member, a seeded Org B row) and then demands isolation fail closed.
+
+### The §7 HTTP matrix — `apps/api/src/security-cross-tenant.test.ts` (38 tests)
+
+For every tenant-scoped route (incidents GET/list/PATCH, incident comments, org switch, roster, profile, audit events — including `/api/v1/incidents/:id/comments` per `packages/shared/src/comments.ts`) × {Org B incident id, Org B org id, Org B user id} × {direct read, list, search term existing only in Org B content, PATCH, comment create}:
+
+| Adversarial dimension | Assertion | Result |
+|---|---|---|
+| Direct foreign-ID access (guessed + real Org B ids) | 404/403, zero Org B data anywhere (ids, titles, counts, emails — token-level leak scan against the raw body) | **held — no leak** |
+| Search oracle | a term matching only Org B content returns the empty list shape, not a number (no count oracle; page totals revealed only in the authenticated org's own envelope) | **held** |
+| Tenant-ID substitution in bodies | POST/PATCH payloads injecting `organizationId`/`authorUserId` are rejected 400 by strict Zod schemas and write nothing (delta-checked) | **held** |
+| Assignment laundering | `PATCH /incidents/:id` assigning Org B's user yields 404/403 and no foreign userId echo | **held** |
+| Anonymous / forged-cookie access | 401 on every route; a garbage session cookie is not a session | **held** |
+| Denial audits | `authz.denied` rows scoped to the attacker's org where the spec's audit list requires them (verified out of band via superuser SQL) | **held** |
+
+### RLS negative matrix — `packages/database/src/rls.test.ts` + `grants.test.ts` (16 tests added; package now 58/58)
+
+Every tenant-owned table (`incidents`, `incident_comments`, `audit_events`, `memberships`) gets cross-user negatives under the migration-007 session-variable contract, including user A enumerating user B's memberships; roster-shaped listing without tenant context returns zero rows (no ambient-tenant leak); guessed UUIDs behave identically to real foreign ids. Audit immutability is asserted at the **grant** level: `resolveops_app` holds no UPDATE/DELETE on `audit_events` — verified via `aclexplode()` against the catalog, not by attempting a write the grants forbid.
+
+### Invitation-escalation re-proofs — `security-invitation-escalation.test.ts`
+
+A `status='invited'` membership cannot activate tenant access (the active-organization switch re-checks `status='active'`); viewer/admin-owner invitation attempts by a non-admin are 403 with an audited denial and **no membership row created**; a non-owner admin invitation is the positive control proving the denial is the rule, not the route.
+
+### Session-revocation re-proofs — `security-session-revocation.test.ts` (5 tests), all mid-session
+
+Kill the `app_sessions` row out of band after a proven-live 200 → next request 401 and a restarted store (new instance, same Postgres, nothing in memory) restores nothing; bump `users.auth_epoch` while the row still holds the old epoch (the race the epoch exists to close) → 401 and the store destroys the stale row itself; backdate `updated_at` past the idle TTL and backdate `expire` with fresh activity → both 401 (expiry computed from the DB clock, not process memory). Fixation: a cookie value planted before authentication is never adopted — the callback issues a fresh sid, exactly one session row exists for the user, and the planted value grants nothing.
+
+### Rate-limit re-proofs — `security-rate-limit.test.ts`
+
+A live-session flood on `POST /api/v1/incidents` against the production wiring (budget overridden to 30) hits the cliff, every request past it is 429 with the shared envelope, no 5xx leaks from the limiter path, and the flood wrote exactly the requests the limiter allowed (delta-checked against the fixture seed). **Design boundary documented (finding F-2, informational):** the budget is per route (`global: false` in the auth plugin; mutating resource routes and auth routes opt in via route config) — authenticated reads are not throttled at Phase 1 (RLS + session auth are the read control); the assertion pins this so drift is flagged if the design changes.
+
+### Findings register (report-only — the attacker does not patch)
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| F-1 | **Medium** | `POST /api/v1/me/active-organization` with a guessed nonexistent organization UUID returns **500 INTERNAL** — the denial-audit insert violates `audit_events.organization_id`'s FK (the org does not exist). No foreign data echoes (body is the generic 500 envelope); the failure is the denial audit write, not the guard. | Documented for the implementation owner (P1-8 / follow-up): audit the denial with `organization_id = NULL` (the same shape `user.login` uses) or reject unknown orgs with 404 before the audit write. Not patched here per attacker discipline. |
+| F-2 | Informational | Rate-limit budget is per route; authenticated reads are unthrottled at Phase 1 (see above). | Design boundary pinned by test; revisit at multi-instance scale (Part B limitation already noted in the auth plugin). |
+
+### `ensureAppRolePassword` race — the known issue from P1-4 is now closed upstream
+
+P1-4's entry disclosed (report-only) that `packages/auth`'s test role bootstrap races under parallel workers. Reproduced locally once in two fresh-database full-suite runs (and previously in PR #27's CI on an identical SHA): every worker's `connectAuthTestDatabase` ran `ALTER ROLE resolveops_app LOGIN PASSWORD` concurrently on the virgin catalog ("tuple concurrently updated"). Fixed in `ce255c4` in the owning package — the minimal session-scoped `pg_advisory_lock` guard on one dedicated connection, mirroring (and sharing the lock key with) the audit-reader bootstrap in `packages/database/src/support/db.ts`. Two consecutive fresh-database full-suite runs after the fix: green (below).
+
+### Suite totals at the P1-7 head — fresh-from-empty PostgreSQL 17, locally and in CI's postgres:17 job
+
+**366/366 across 37 test files** repo-wide; of which **apps/api 131/131 across 10 files** (the four P1-7 suites add 49 over P1-4's 82) and **packages/database 58/58 across 3 files** (+16 over P1-4's 42). The fresh-from-empty gate (drop + recreate, migrations from zero, full suite) was run twice consecutively after the bootstrap fix: 366/366 both times. Strict `tsc`, root ESLint clean; no new npm dependencies; no `apps/web` diff; backend-only work — visual evidence is not applicable (no rendered surface changed).
