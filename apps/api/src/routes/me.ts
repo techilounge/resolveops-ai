@@ -103,20 +103,52 @@ export const meRoutes: FastifyPluginCallback<ResourceRouteOptions> = (app, deps,
 
     const context = await loadTenantContext(deps.pool, requested);
     if (!context) {
-      // Non-member selection: audited into the TARGET org's log. The session
-      // is deliberately untouched — a denied switch changes no state, so the
-      // previously valid selection survives (and nothing stale can slip: the
-      // guard re-verifies the stored org's active membership on every
-      // request, so a mid-session revocation fails the guard regardless).
-      await withTenantContext(deps.pool, requested, (client) =>
-        writeAuditEvent(client, {
+      // Non-member selection: audited into the TARGET org's log when that
+      // org exists. The session is deliberately untouched — a denied switch
+      // changes no state, so the previously valid selection survives (and
+      // nothing stale can slip: the guard re-verifies the stored org's
+      // active membership on every request, so a mid-session revocation
+      // fails the guard regardless).
+      //
+      // F-1: a guessed (nonexistent) org id cannot own an org-scoped audit
+      // row — audit_events.organization_id would FK-violate and the denial
+      // became a 500. Existence is checked under the requested org's RLS
+      // context (the organizations policy matches on id alone, so a
+      // non-member still sees the row): an existing org keeps the exact
+      // org-scoped shape pinned by the P1-7 matrix; a nonexistent one takes
+      // the user-scoped shape user.login uses — organization_id NULL
+      // (nullable by design for user-scoped events; the WITH CHECK clause
+      // allows it outside any tenant context), the actor preserved, the
+      // attempted id carried in metadata so the denial stays auditable.
+      const orgExists = await withTenantContext(deps.pool, requested, async (client) => {
+        const org = await client.query<{ id: string }>(
+          'SELECT id FROM organizations WHERE id = $1',
+          [requested.organizationId],
+        );
+        if (org.rows.length === 0) return false;
+        await writeAuditEvent(client, {
           organizationId: requested.organizationId,
           actorUserId: requested.userId,
           action: 'tenant.access_denied',
           targetType: 'organization',
           targetId: requested.organizationId,
           metadata: { reason: 'not_active_member' },
-        }));
+        });
+        return true;
+      });
+      if (!orgExists) {
+        await writeAuditEvent(deps.pool, {
+          organizationId: null,
+          actorUserId: requested.userId,
+          action: 'tenant.access_denied',
+          targetType: 'organization',
+          targetId: requested.organizationId,
+          metadata: {
+            reason: 'not_active_member',
+            attemptedOrganizationId: requested.organizationId,
+          },
+        });
+      }
       throw new AuthError('FORBIDDEN', 'Not an active member of the selected organization.');
     }
 
