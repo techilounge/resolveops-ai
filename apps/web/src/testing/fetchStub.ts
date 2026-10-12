@@ -4,7 +4,10 @@
 // garbage. Deliberately in src/ (not a hidden folder) so the tsconfig/eslint
 // gates see exactly what the suite sees.
 import type {
+  IncidentCommentDto,
+  IncidentResponse,
   MeResponse,
+  Member,
   Membership,
   Organization,
   OrganizationCreatedResponse,
@@ -90,6 +93,10 @@ export const TEST_IDS = {
   user: 'b1e0c7a2-34f9-4d58-8e26-90ab3c5d7f61',
   orgA: '3f2e6a1e-9b5c-4f7d-8a21-6c0e5d9b4a10',
   orgB: '8c41d2f0-51e7-4a3b-9d62-2b7f0a5e3c44',
+  incident: 'c1d2e3a4-0000-4000-8000-0000000000aa',
+  incident2: 'c1d2e3a4-0000-4000-8000-0000000000bb',
+  member: 'd4e5f6b7-0000-4000-8000-0000000000cc',
+  comment: 'e5f6a7c8-0000-4000-8000-0000000000dd',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -128,4 +135,54 @@ export function meFixture(memberships: Membership[]): MeResponse {
 /** POST /api/v1/organizations response: org + owner membership, one transaction. */
 export function createdOrgEnvelope(organization: Organization): OrganizationCreatedResponse {
   return { organization, membership: { role: 'owner', status: 'active' } };
+}
+
+/** GET /api/v1/incidents/:id response per the merged contract. */
+export function incidentFixture(overrides: Partial<IncidentResponse> = {}): IncidentResponse {
+  return {
+    id: TEST_IDS.incident,
+    title: 'BitLocker recovery stuck on workstation WS-1041',
+    description: 'A user reports a recovery-key prompt after a BitLocker update.',
+    status: 'new',
+    severity: 'high',
+    assigneeUserId: null,
+    createdBy: TEST_IDS.user,
+    version: 1,
+    createdAt: FIXTURE_DATES.createdAt,
+    updatedAt: FIXTURE_DATES.updatedAt,
+    ...overrides,
+  };
+}
+
+/** A comment row per packages/shared comments.ts (server-resolved author name). */
+export function commentFixture(overrides: Partial<IncidentCommentDto> = {}): IncidentCommentDto {
+  return {
+    organizationId: TEST_IDS.orgA,
+    id: TEST_IDS.comment,
+    incidentId: TEST_IDS.incident,
+    authorUserId: TEST_IDS.user,
+    authorDisplayName: 'Avery Analyst',
+    body: 'Starting triage — pulling the BitLocker event log next.',
+    createdAt: FIXTURE_DATES.createdAt,
+    updatedAt: FIXTURE_DATES.updatedAt,
+    ...overrides,
+  };
+}
+
+/** A roster row per the membership list contract (server-resolved display name). */
+export function memberFixture(overrides: Partial<Member> = {}): Member {
+  return {
+    userId: TEST_IDS.member,
+    displayName: 'Dee Admin',
+    email: 'dee@example.com',
+    role: 'admin',
+    status: 'active',
+    createdAt: FIXTURE_DATES.createdAt,
+    ...overrides,
+  };
+}
+
+/** The page envelope shared by every list route. */
+export function pageEnvelope<T>(data: T[], page: number, pageSize: number, total: number) {
+  return { data, page: { page, pageSize, total } };
 }
