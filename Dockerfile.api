@@ -1,0 +1,33 @@
+# API runtime image (Phase 1 Blueprint section 4.6 — staging deploy plumbing).
+#
+# Build from the repository root so npm ci sees every workspace manifest:
+#   docker build -f Dockerfile.api -t resolveops-api:<tag> .
+#
+# The repo is noEmit TypeScript (Bundler resolution), so the image runs the
+# sources in place via tsx — no compiled artifact exists to copy. All runtime
+# configuration arrives as environment/secret references at deploy time
+# (DATABASE_URL / APP_DATABASE_URL, AUTH_PROVIDER, ENTRA_*, COOKIE_SECRET,
+# PUBLIC_BASE_URL); no values are baked into this image.
+FROM node:22-alpine
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+# tsx is a devDependency; a full npm ci keeps the TS runtime path intact.
+COPY package.json package-lock.json .nvmrc ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY packages/shared/package.json packages/shared/
+COPY packages/domain/package.json packages/domain/
+COPY packages/auth/package.json packages/auth/
+COPY packages/database/package.json packages/database/
+RUN npm ci --no-audit --no-fund
+
+# Sources only (node_modules excluded via .dockerignore); migrations ship
+# inside packages/database/migrations for operator-side `npm run db:migrate`.
+COPY apps ./apps
+COPY packages ./packages
+
+EXPOSE 3000
+CMD ["node_modules/.bin/tsx", "apps/api/src/server.ts"]

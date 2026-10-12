@@ -1,0 +1,11 @@
+# Keep the API image build context to sources + manifests (Dockerfile.api).
+node_modules
+.git
+dist
+coverage
+*.log
+bun.lock
+tasks
+docs
+e2e
+.github
