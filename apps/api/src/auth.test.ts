@@ -5,7 +5,6 @@ import type { Pool } from 'pg';
 import { ApiErrorSchema } from '@resolveops/shared';
 import {
   EntraIdp,
-  EntraIdpNotWiredError,
   PostgresSessionStore,
   SESSION_COOKIE_NAME,
   StubIdp,
@@ -590,8 +589,8 @@ describe('auth security matrix (HTTP)', () => {
       expectEnvelope(third, 'RATE_LIMITED');
     });
 
-    it('the Entra adapter is a seam only: construction works, network methods refuse with Part B guidance', async () => {
-      const entra = new EntraIdp({
+    it('the Entra adapter builds real offline flows and refuses nonce-less exchanges (Part B wired)', async () => {
+      const entra = EntraIdp.fromMetadata({
         issuer: 'https://login.microsoftonline.com/tenant-id/v2.0',
         clientId: 'client',
         clientSecret: 'secret',
@@ -601,14 +600,21 @@ describe('auth security matrix (HTTP)', () => {
           token_endpoint: 'https://login.microsoftonline.com/tenant-id/v2.0/token',
         },
       });
-      expect(entra.clientConfiguration).toBeDefined();
-      await expect(entra.createLoginFlow('https://staging.example/auth/callback')).rejects.toBeInstanceOf(EntraIdpNotWiredError);
+      const flow = await entra.createLoginFlow('https://staging.example/auth/callback');
+      const authorization = new URL(flow.authorizationUrl);
+      expect(authorization.origin).toBe('https://login.microsoftonline.com');
+      expect(authorization.searchParams.get('response_type')).toBe('code');
+      expect(authorization.searchParams.get('code_challenge_method')).toBe('S256');
+      expect(authorization.searchParams.get('client_id')).toBe('client');
+      expect(authorization.searchParams.get('redirect_uri')).toBe('https://staging.example/auth/callback');
+      expect(flow.codeVerifier.length).toBeGreaterThan(0);
+      // Strict in-band nonce validation: the wired adapter requires the flow
+      // nonce (the API passes it; its absence means a broken caller).
       await expect(
         entra.exchangeCode({ code: 'x', codeVerifier: 'y', redirectUri: 'https://staging.example/auth/callback' }),
-      ).rejects.toBeInstanceOf(EntraIdpNotWiredError);
-      await expect(entra.createLoginFlow('x')).rejects.toThrow(/Part B/);
+      ).rejects.toThrow(/nonce/i);
       expect(
-        () => new EntraIdp({
+        () => EntraIdp.fromMetadata({
           issuer: 'http://insecure.example',
           clientId: 'client',
           clientSecret: 'secret',

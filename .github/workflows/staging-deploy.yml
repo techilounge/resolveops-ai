@@ -1,0 +1,108 @@
+# Staging deploy (Phase 1 Blueprint section 4.6 — Part B).
+#
+# Manual-only: a human with staging access dispatches it. The `staging`
+# GitHub Environment is the gate — its configured secrets carry every value
+# referenced below, and (if configured) its required reviewers approve the
+# deploy BEFORE any job runs. Secret REFERENCES only: no literal values are
+# ever written into this file, job logs, or the image.
+#
+# Required secrets (GitHub Environment: staging):
+#   DATABASE_URL        direct (session-mode) Postgres connection for the migrator
+#   APP_DATABASE_URL    transaction-pooler connection for the app runtime
+#   COOKIE_SECRET       session/cookie signing secret (32+ random bytes)
+#   ENTRA_TENANT_ID     directory (tenant) id of the dedicated dev tenant
+#   ENTRA_CLIENT_ID     app registration client id
+#   ENTRA_CLIENT_SECRET app registration client secret
+#   STAGING_BASE_URL    e.g. https://staging.<your-domain> (redirect-uri host)
+#   STAGING_SSH_HOST    docker host for the deploy step
+#   STAGING_SSH_USER    ssh user on that host
+#   STAGING_SSH_KEY     private key authorized on that host
+name: Staging deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deploy
+  # Never cancel a running migrate mid-apply; serialize deploys instead.
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Apply migrations to managed Postgres
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  build-and-push:
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY}/api:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          tags: ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Pull and run the API on the staging host
+        # SSH pulls the freshly pushed image and (re)starts the container with
+        # the environment-issued secret references. The restart is the
+        # deploy; single-container staging is the accepted Phase 1 topology.
+        run: |
+          set -euo pipefail
+          install -m 600 /dev/stdin ~/staging_key <<< "${{ secrets.STAGING_SSH_KEY }}"
+          ssh -i ~/staging_key -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }}" \
+            "docker pull ${{ needs.build-and-push.outputs.image }} && \
+             docker stop resolveops-api 2>/dev/null || true && \
+             docker rm resolveops-api 2>/dev/null || true && \
+             docker run -d --name resolveops-api --restart unless-stopped -p 3000:3000 \
+               -e AUTH_PROVIDER=entra \
+               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
+               -e APP_DATABASE_URL='${{ secrets.APP_DATABASE_URL }}' \
+               -e COOKIE_SECRET='${{ secrets.COOKIE_SECRET }}' \
+               -e ENTRA_TENANT_ID='${{ secrets.ENTRA_TENANT_ID }}' \
+               -e ENTRA_CLIENT_ID='${{ secrets.ENTRA_CLIENT_ID }}' \
+               -e ENTRA_CLIENT_SECRET='${{ secrets.ENTRA_CLIENT_SECRET }}' \
+               -e PUBLIC_BASE_URL='${{ secrets.STAGING_BASE_URL }}' \
+               -e ALLOWED_ORIGINS='${{ secrets.STAGING_BASE_URL }}' \
+               ${{ needs.build-and-push.outputs.image }}"
+      - name: Health check
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl -fsS "${{ secrets.STAGING_BASE_URL }}/healthz" | grep -q '"status":"ok"'; then
+              echo "staging healthy"; exit 0
+            fi
+            sleep 2
+          done
+          echo "staging failed to become healthy"; exit 1

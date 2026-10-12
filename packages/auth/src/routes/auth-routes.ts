@@ -109,6 +109,9 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       // The same server-resolved redirect_uri the login route bound into the
       // authorization request (login_flow_state does not store it).
       redirectUri: resolveRedirectUri(resolved),
+      // Strict in-band nonce validation (EntraIdp) — the API re-checks the
+      // returned claim below for every adapter.
+      expectedNonce: flow.nonce,
     }).catch((error: unknown) => {
       // Adapter failures (bad/expired code, verifier or redirect mismatch,
       // token error responses) are protocol denials — client errors, not
