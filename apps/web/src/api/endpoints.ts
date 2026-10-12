@@ -4,6 +4,7 @@
 // touching the web client.
 import {
   MeResponseSchema,
+  OrganizationCreatedResponseSchema,
   OrganizationSchema,
   type MeResponse,
   type Organization,
@@ -28,15 +29,16 @@ export async function getCurrentOrganization(): Promise<Organization> {
 }
 
 /**
- * Creates the organization and (API-side) the owner membership. Returns the
- * organization when the response carries the locked Organization DTO;
- * `null` when the API wave ships a different envelope — callers then
- * identify the new organization from the membership delta on GET /me.
+ * Creates the organization; the API writes the owner membership in the SAME
+ * transaction and answers with the merged create envelope (org + membership,
+ * packages/shared organizations.ts). Returns the organization, or `null` when
+ * the body does not match the contract — callers then identify the new
+ * organization from the membership delta on GET /me.
  */
 export async function createOrganization(name: string): Promise<Organization | null> {
   const body = await apiRequest(API_PATHS.organizationsCreate, { method: 'POST', body: { name } });
-  const parsed = OrganizationSchema.safeParse(body);
-  return parsed.success ? parsed.data : null;
+  const parsed = OrganizationCreatedResponseSchema.safeParse(body);
+  return parsed.success ? parsed.data.organization : null;
 }
 
 /**

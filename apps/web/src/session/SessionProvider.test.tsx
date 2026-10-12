@@ -8,24 +8,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ReactElement } from 'react';
 import { SessionProvider, useSession } from './SessionProvider';
 import { resetClientState, setUnauthorizedHandler } from '../api/client';
-import { TEST_IDS, installFetchStub, type FetchHandler } from '../testing/fetchStub';
+import { TEST_IDS, installFetchStub, meFixture, membershipFixture, orgFixture, type FetchHandler } from '../testing/fetchStub';
 
-const { user: USER_ID, orgA: ORG_A_ID, orgB: ORG_B_ID } = TEST_IDS;
+const { orgA: ORG_A_ID, orgB: ORG_B_ID } = TEST_IDS;
 
-const ME_BODY = {
-  user: { id: USER_ID, displayName: 'Avery Analyst', email: 'avery@example.com' },
-  memberships: [
-    { organizationId: ORG_A_ID, role: 'owner' },
-    { organizationId: ORG_B_ID, role: 'analyst' },
-  ],
-};
+const ME_BODY = meFixture([
+  membershipFixture(ORG_A_ID, 'City of Austin IT', 'owner'),
+  membershipFixture(ORG_B_ID, 'Harborview Ops', 'analyst'),
+]);
 
-const ORG_A_BODY = {
-  id: ORG_A_ID,
-  name: 'City of Austin IT',
-  createdAt: '2026-10-11T00:00:00.000Z',
-  updatedAt: '2026-10-11T00:00:00.000Z',
-};
+const ORG_A_BODY = orgFixture(ORG_A_ID, 'City of Austin IT', 'city-of-austin-it');
 
 // Probe: exposes the session status plus a retry button wired to refresh()
 // — the same control the error screens render.

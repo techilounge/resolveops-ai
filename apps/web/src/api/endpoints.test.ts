@@ -9,31 +9,21 @@ import {
   logout,
   switchActiveOrganization,
 } from './endpoints';
-import { TEST_IDS, installFetchStub } from '../testing/fetchStub';
+import { TEST_IDS, createdOrgEnvelope, installFetchStub, meFixture, membershipFixture, orgFixture } from '../testing/fetchStub';
 
-const { user: USER_ID, orgA: ORG_A_ID } = TEST_IDS;
-
-function meBody(memberships: { organizationId: string; role: string }[]): unknown {
-  return {
-    user: { id: USER_ID, displayName: 'Avery Analyst', email: 'avery@example.com' },
-    memberships,
-  };
-}
-
-function orgBody(id: string, name: string): unknown {
-  return { id, name, createdAt: '2026-10-11T00:00:00.000Z', updatedAt: '2026-10-11T00:00:00.000Z' };
-}
+const { orgA: ORG_A_ID } = TEST_IDS;
 
 describe('getMe', () => {
   it('parses a valid /me payload into the shared contract', async () => {
+    const memberships = [membershipFixture(ORG_A_ID, 'City of Austin IT', 'owner')];
     const stub = installFetchStub((request) =>
       request.method === 'GET' && request.url.endsWith(API_PATHS.me)
-        ? { status: 200, body: meBody([{ organizationId: ORG_A_ID, role: 'owner' }]) }
+        ? { status: 200, body: meFixture(memberships) }
         : undefined,
     );
     const me = await getMe();
     expect(me.user.email).toBe('avery@example.com');
-    expect(me.memberships).toEqual([{ organizationId: ORG_A_ID, role: 'owner' }]);
+    expect(me.memberships).toEqual(memberships);
     stub.restore();
   });
 
@@ -49,16 +39,17 @@ describe('getMe', () => {
 });
 
 describe('getCurrentOrganization', () => {
-  it('parses the organization DTO', async () => {
+  it('parses the organization DTO (merged contract: slug included)', async () => {
     const stub = installFetchStub((request) =>
       request.method === 'GET' && request.url.endsWith(API_PATHS.organizationsCurrent)
-        ? { status: 200, body: orgBody(ORG_A_ID, 'City of Austin IT') }
+        ? { status: 200, body: orgFixture(ORG_A_ID, 'City of Austin IT', 'city-of-austin-it') }
         : undefined,
     );
     const org = await getCurrentOrganization();
     expect(org).toEqual({
       id: ORG_A_ID,
       name: 'City of Austin IT',
+      slug: 'city-of-austin-it',
       createdAt: '2026-10-11T00:00:00.000Z',
       updatedAt: '2026-10-11T00:00:00.000Z',
     });
@@ -67,20 +58,21 @@ describe('getCurrentOrganization', () => {
 });
 
 describe('createOrganization', () => {
-  it('POSTs { name } and returns the created organization', async () => {
+  it('POSTs { name } and unwraps the merged create envelope (org + membership)', async () => {
+    const created = orgFixture(ORG_A_ID, 'New Org', 'new-org');
     const stub = installFetchStub((request) =>
       request.method === 'POST' && request.url.endsWith(API_PATHS.organizationsCreate)
-        ? { status: 201, body: orgBody(ORG_A_ID, 'New Org') }
+        ? { status: 201, body: createdOrgEnvelope(created) }
         : undefined,
     );
     const org = await createOrganization('New Org');
-    expect(org?.id).toBe(ORG_A_ID);
+    expect(org).toEqual(created);
     const post = stub.requests.find((request) => request.method === 'POST');
     expect(post?.body).toEqual({ name: 'New Org' });
     stub.restore();
   });
 
-  it('returns null when the response does not match the Organization DTO', async () => {
+  it('returns null when the response does not match the create envelope', async () => {
     const stub = installFetchStub((request) =>
       request.method === 'POST' && request.url.endsWith(API_PATHS.organizationsCreate)
         ? { status: 201, body: { unexpected: 'shape' } }

@@ -123,7 +123,9 @@ export function OnboardingPage() {
                   >
                     {currentOrg?.id === membership.organizationId
                       ? `Continue as ${currentOrg.name} (${membership.role})`
-                      : `Open ${membership.role} · ${membership.organizationId.slice(0, 8)}`}
+                      : membership.organizationName !== null
+                        ? `Open ${membership.organizationName} (${membership.role})`
+                        : `Open ${membership.role} · ${membership.organizationId.slice(0, 8)}`}
                   </button>
                 </li>
               ))}

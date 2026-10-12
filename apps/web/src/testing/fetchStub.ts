@@ -3,6 +3,13 @@
 // unmatched request fails the test loudly instead of hanging or returning
 // garbage. Deliberately in src/ (not a hidden folder) so the tsconfig/eslint
 // gates see exactly what the suite sees.
+import type {
+  MeResponse,
+  Membership,
+  Organization,
+  OrganizationCreatedResponse,
+} from '@resolveops/shared';
+
 export interface RecordedRequest {
   url: string;
   method: string;
@@ -84,3 +91,41 @@ export const TEST_IDS = {
   orgA: '3f2e6a1e-9b5c-4f7d-8a21-6c0e5d9b4a10',
   orgB: '8c41d2f0-51e7-4a3b-9d62-2b7f0a5e3c44',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Fixture builders — the merged shared contracts (P1-4), spoken in ONE place
+// so a future contract change updates a single file. Builders return plain
+// DTOs typed against the shared schemas; tests inject them into stub bodies.
+// ---------------------------------------------------------------------------
+export const FIXTURE_DATES = {
+  createdAt: '2026-10-11T00:00:00.000Z',
+  updatedAt: '2026-10-11T00:00:00.000Z',
+} as const;
+
+/** Organization DTO per the merged contract (includes the server slug). */
+export function orgFixture(id: string, name: string, slug: string): Organization {
+  return { id, name, slug, createdAt: FIXTURE_DATES.createdAt, updatedAt: FIXTURE_DATES.updatedAt };
+}
+
+/** /me membership per the merged contract: role, status, and server-resolved name. */
+export function membershipFixture(
+  organizationId: string,
+  organizationName: string,
+  role: Membership['role'],
+  status: Membership['status'] = 'active',
+): Membership {
+  return { organizationId, organizationName, role, status };
+}
+
+/** GET /api/v1/me body for the shared test user. */
+export function meFixture(memberships: Membership[]): MeResponse {
+  return {
+    user: { id: TEST_IDS.user, displayName: 'Avery Analyst', email: 'avery@example.com' },
+    memberships,
+  };
+}
+
+/** POST /api/v1/organizations response: org + owner membership, one transaction. */
+export function createdOrgEnvelope(organization: Organization): OrganizationCreatedResponse {
+  return { organization, membership: { role: 'owner', status: 'active' } };
+}

@@ -1,10 +1,9 @@
 // Header organization selector: the session's active organization, switched
 // via the D2 route (POST /api/v1/me/active-organization). Options come from
-// the session's membership records — /me carries ids and roles, not names, so
-// the ACTIVE organization is labeled with its name (from
-// GET /organizations/current) and the others show role + short id until the
-// API exposes membership names. A 403 renders the denied state; nothing about
-// the target organization leaks either way.
+// the session's membership records; /me resolves organizationName server-side
+// (RLS-legal self-visibility reads), so every option labels with its org name
+// — the short id is the fallback for the degenerate null-name case. A 403
+// renders the denied state; nothing about the target organization leaks either way.
 import { useState } from 'react';
 import { ApiError } from '../api/client';
 import { useSession } from '../session/SessionProvider';
@@ -42,11 +41,6 @@ export function OrgSelector() {
       });
   };
 
-  const activeMembership: typeof me.memberships[number] | undefined =
-    currentOrg === null
-      ? undefined
-      : me.memberships.find((membership) => membership.organizationId === currentOrg.id);
-
   return (
     <div className="live-org">
       <label className="live-org-label" htmlFor="org-selector">
@@ -62,8 +56,8 @@ export function OrgSelector() {
         {currentOrg === null ? <option value="">No active organization</option> : null}
         {me.memberships.map((membership) => (
           <option key={membership.organizationId} value={membership.organizationId}>
-            {membership === activeMembership && currentOrg !== null
-              ? `${currentOrg.name} (${membership.role})`
+            {membership.organizationName !== null
+              ? `${membership.organizationName} (${membership.role})`
               : `${membership.role} · ${membership.organizationId.slice(0, 8)}`}
           </option>
         ))}
