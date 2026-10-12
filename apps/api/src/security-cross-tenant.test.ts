@@ -30,14 +30,27 @@ import {
  */
 
 /** Every string that would betray Org B data if a response ever echoed it. */
-function foreignTokens(context: TestContext, extra: string[] = []): string[] {
+function foreignTokens(context: TestContext, extra: (string | RegExp)[] = []): (string | RegExp)[] {
   const f = context.fixture;
-  return [f.orgBId, f.incidentBId, f.userBId, f.orgBToken, 'Org B', 'User B', 'b@example.com', ...extra];
+  return [
+    f.orgBId,
+    f.incidentBId,
+    f.userBId,
+    f.orgBToken,
+    'Org B',
+    'User B',
+    // userB's exact email, boundary-guarded: fixture emails are generated as
+    // `mem-<hex>@example.com`, so a bare 'b@example.com' substring would
+    // false-positive whenever a hex suffix ends in 'b' (seen in CI).
+    /(?<![0-9a-f-])b@example\.com/,
+    ...extra,
+  ];
 }
 
-function assertNoForeignData(body: string, tokens: string[]): void {
+function assertNoForeignData(body: string, tokens: (string | RegExp)[]): void {
   for (const token of tokens) {
-    expect(body.includes(token), `response leaked foreign token "${token}": ${body}`).toBe(false);
+    const leaked = typeof token === 'string' ? body.includes(token) : token.test(body);
+    expect(leaked, `response leaked foreign token ${String(token)}: ${body}`).toBe(false);
   }
 }
 
@@ -55,7 +68,7 @@ function expectTenantDenial(
   res: CellResponse,
   statuses: number[],
   code: 'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST',
-  tokens: string[],
+  tokens: (string | RegExp)[],
 ): CellResponse {
   expect(
     statuses.includes(res.statusCode),
