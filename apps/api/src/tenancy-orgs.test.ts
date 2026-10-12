@@ -208,6 +208,54 @@ describe('tenancy and organizations (HTTP)', () => {
       );
     });
 
+    it('denies switching to a nonexistent organization with a clean 403 and a user-scoped denial row (F-1)', async () => {
+      if (!context) return;
+      const session = await context.member({ role: 'owner' });
+      await mutate(context, session, 'POST', '/api/v1/me/active-organization', {
+        organizationId: context.fixture.orgAId,
+      });
+      // F-1: a well-formed but nonexistent org id must be a clean 403 denial
+      // envelope — never the audit-FK 500 — and echo nothing, not even the
+      // attempted id.
+      const nonexistent = randomUUID();
+      const response = await mutate(context, session, 'POST', '/api/v1/me/active-organization', {
+        organizationId: nonexistent,
+      });
+      expectEnvelope(response, 'FORBIDDEN');
+      expect(response.statusCode).toBe(403);
+      expect(response.body).not.toContain(nonexistent);
+      // The denial stays auditable without a (nonexistent) org to scope the
+      // row to: the user-scoped shape user.login uses — organization_id NULL
+      // (nullable by design), the actor preserved, the attempted id carried
+      // in metadata. Actor-scoped so parallel workers stay deterministic.
+      const denials = await context.superuserPool.query<{
+        actor_user_id: string;
+        target_id: string | null;
+        reason: string | null;
+        attempted: string | null;
+      }>(
+        `SELECT actor_user_id, target_id,
+                metadata->>'reason' AS reason,
+                metadata->>'attemptedOrganizationId' AS attempted
+           FROM audit_events
+          WHERE action = 'tenant.access_denied'
+            AND organization_id IS NULL
+            AND actor_user_id = $1`,
+        [session.userId],
+      );
+      expect(denials.rows).toHaveLength(1);
+      expect(denials.rows[0].actor_user_id).toBe(session.userId);
+      expect(denials.rows[0].target_id).toBe(nonexistent);
+      expect(denials.rows[0].reason).toBe('not_active_member');
+      expect(denials.rows[0].attempted).toBe(nonexistent);
+      // The previously valid selection survives a denied switch.
+      const current = await read(context, session, '/api/v1/organizations/current');
+      expect(current.statusCode).toBe(200);
+      expect((JSON.parse(current.body) as { organization: { id: string } }).organization.id).toBe(
+        context.fixture.orgAId,
+      );
+    });
+
     it('denies switching to an invited-but-not-active membership', async () => {
       if (!context) return;
       const session = await context.member({ role: 'owner' });

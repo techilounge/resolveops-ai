@@ -211,15 +211,13 @@ describe('P1-7 cross-tenant adversarial matrix (HTTP, Blueprint §7)', () => {
       const res = await mutate(context, ownerA, 'POST', '/api/v1/me/active-organization', {
         organizationId: guessed,
       });
-      // Known finding (P1-7, reported in the PR body — not patched here):
-      // the denial-audit write for a nonexistent org id FK-violates, so the
-      // route answers 500 INTERNAL today instead of the ideal 403. The
-      // security properties are asserted, not the incident status class:
-      // never a success, never foreign data, shared envelope, session
-      // untouched; the 500-vs-403 asymmetry is left to the fixer.
-      expect(res.statusCode >= 400, `expected a denial, got ${res.statusCode}`).toBe(true);
-      expectEnvelope(res, 'INTERNAL');
-      assertNoForeignData(res.body, foreignTokens(context, [guessed]));
+      // F-1 fix: a well-formed but nonexistent org id is a clean 403 denial
+      // envelope. The denial-audit row is user-scoped (organization_id NULL,
+      // actor preserved, attempted id in metadata) because an org-scoped row
+      // would violate audit_events.organization_id's FK. The security
+      // properties stay as pinned: never a success, never foreign data,
+      // shared envelope, session untouched.
+      expectTenantDenial(res, [403], 'FORBIDDEN', foreignTokens(context, [guessed]));
 
       const current = await read(context, ownerA, '/api/v1/organizations/current');
       expect(current.statusCode).toBe(200);
