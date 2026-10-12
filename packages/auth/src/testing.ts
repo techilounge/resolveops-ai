@@ -23,9 +23,25 @@ export function appRoleDatabaseUrl(connectionString = testDatabaseUrl()): string
 
 /** Superuser one-liner: let the app role authenticate with the test password. */
 export async function ensureAppRolePassword(superuserPool: Pool): Promise<void> {
-  await superuserPool.query(
-    `ALTER ROLE resolveops_app LOGIN PASSWORD '${APP_ROLE_TEST_PASSWORD}'`,
-  );
+  // The advisory lock serializes role bootstrap across parallel vitest
+  // workers on a fresh database: concurrent ALTER ROLE on one role races
+  // ("tuple concurrently updated") and intermittently fails the first
+  // CI job after the postgres service container boots. Session-scoped lock
+  // on ONE dedicated connection — the same pattern (and lock key) as the
+  // audit-reader password in packages/database/src/support/db.ts.
+  const client = await superuserPool.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock(hashtext('resolveops-test-role-bootstrap'))");
+    try {
+      await client.query(
+        `ALTER ROLE resolveops_app LOGIN PASSWORD '${APP_ROLE_TEST_PASSWORD}'`,
+      );
+    } finally {
+      await client.query("SELECT pg_advisory_unlock(hashtext('resolveops-test-role-bootstrap'))");
+    }
+  } finally {
+    client.release();
+  }
 }
 
 export interface AppRolePoolResult {
