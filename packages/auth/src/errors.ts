@@ -35,14 +35,3 @@ export class SessionRevokedError extends AuthError {
     this.name = 'SessionRevokedError';
   }
 }
-
-/** Raised by the EntraIdp seam when a network-dependent method is called. */
-export class EntraIdpNotWiredError extends AuthError {
-  constructor(operation: string) {
-    super(
-      'INTERNAL',
-      `EntraIdp.${operation} is not wired in Phase 1 Part A: real Entra identity is gated on the Part B prerequisites (Phase 1 Blueprint §4.2/§9).`,
-    );
-    this.name = 'EntraIdpNotWiredError';
-  }
-}

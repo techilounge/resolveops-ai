@@ -22,6 +22,13 @@ export interface ExchangeCodeParams {
   code: string;
   codeVerifier: string;
   redirectUri: string;
+  /**
+   * The nonce bound to this login flow (from `login_flow_state`). Adapters
+   * that validate the ID token in-band (EntraIdp via openid-client's strict
+   * nonce check) require it; the API layer re-checks the returned claim for
+   * every adapter, so a stub that ignores the field stays correct.
+   */
+  expectedNonce?: string;
 }
 
 /**
