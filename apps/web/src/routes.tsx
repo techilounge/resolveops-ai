@@ -9,8 +9,10 @@ import { LoginRoute } from './auth/LoginRoute';
 import { LogoutRoute } from './auth/LogoutRoute';
 import { RequireAuth } from './guard/RequireAuth';
 import { NotYetAvailable } from './pages/NotYetAvailable';
-import { IncidentsPlaceholder } from './pages/IncidentsPlaceholder';
-import { TeamPlaceholder } from './pages/TeamPlaceholder';
+import { IncidentsListPage } from './pages/incidents/IncidentsListPage';
+import { IncidentDetailPage } from './pages/incidents/IncidentDetailPage';
+import { NewIncidentPage } from './pages/incidents/NewIncidentPage';
+import { TeamPage } from './pages/team/TeamPage';
 import { OnboardingPage } from './onboarding/OnboardingPage';
 import { AppShell } from './shell/AppShell';
 import { FullPageLoading } from './states/States';
@@ -53,8 +55,11 @@ export function AppRoutes({ demoSlot = null }: AppRoutesProps) {
         }
       >
         <Route index element={<Navigate to="/app/incidents" replace />} />
-        <Route path="incidents" element={<IncidentsPlaceholder />} />
-        <Route path="team" element={<TeamPlaceholder />} />
+        {/* Real Phase 1 screens (Blueprint §4.4, P1-6). */}
+        <Route path="incidents" element={<IncidentsListPage />} />
+        <Route path="incidents/new" element={<NewIncidentPage />} />
+        <Route path="incidents/:id" element={<IncidentDetailPage />} />
+        <Route path="team" element={<TeamPage />} />
         {/* Later-phase IA targets and unknown deep links — no silent 404s. */}
         <Route path="*" element={<NotYetAvailable />} />
       </Route>
